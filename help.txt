@@ -1,0 +1,23 @@
+Command list:
+-set -p [position_name] [player_tag] -team [team_name]: Sets player to be the position_name in the teams roster
+-sub -p [position_name] [player_tag]: Similar to -set but specifically should be used when substituting players out during a game
+-help: Displays command list
+-name [player_tag]: Displays player_tag's character name
+-position [player_tag]: Displays player_tag's position
+-year [player_tag]: Displays player_tag's year
+-rank [player_tag]: Displays player_tag's rank
+-xp [player_tag]: Displays player_tag's xp
+-score: Returns the current score of a game is one is currently ongoing
+-captain [team_name]: Displays the captain of the given team
+-write [new_property] [default_value] [variable_type={string (default), boolean, int}]: Writes a new property in the json data file, with the default value being of the type specified
+-roster [team_name]: Displays the roster of the team specified
+-autopop [team_name]: Autopopulates the roster for the team specified
+-start [teamA]: Starts a quidditch game between Gryffindor and teamA
+-start [teamA] [teamB]: Starts a quidditch game between teamA and teamB
+-add [player_tag] name [player_name] position [player_position] : adds a new player
+-save: Writes all of the current data onto the json file. 
+-reroll:
+-search:
+-pause:
+-stop:
+-clear:
