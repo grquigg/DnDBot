@@ -24,7 +24,7 @@ class MatchState(Enum):
 # def has_role(role_name, member):
 default_path = "./examplefile.json"
 client_id = os.getenv("CLIENT_ID")
-
+print(client_id)
 async def start_match_headless(channel, teamA, teamB):
     global gameStarted
     gameStarted = True
@@ -129,11 +129,8 @@ async def start_match(channel, teamA, teamB):
         second_team = teamA
     for i in range(num_rounds):
         await run_round(first_team, second_team, channel)
-        await channel.send("Now it is " + second_team + "'s turn to be on the offense")
-        await channel.send("Type 'continue' to continue")
         while(control_sequence == False):
             await asyncio.sleep(1)
-        await run_round(second_team, first_team, channel)
         await channel.send("Score is " + first_team + ": " + str(scores[teamA]) + ", " +  second_team + ": " + str(scores[teamB]))
     teamA_rolls = 0
     teamB_rolls = 0 
@@ -395,47 +392,105 @@ async def run_round(a, b, channel):
     team_b = b
     team_rerolls = 3
     control_sequence = False
-    team_rolls = []
+    team_a_rolls = []
+    team_b_rolls = []
+    offensive_rolls = []
+    defensive_rolls = []
     for j in range(3):
         roll = random.randint(1, 12)
-        team_rolls.append(roll)
-
-    maxRoll = max(team_rolls)
-    print(maxRoll)
+        team_a_rolls.append(roll)
+    for l in range(3):
+        roll = random.randint(1, 12)
+        team_b_rolls.append(roll)
+    maxRollA = max(team_a_rolls)
+    maxRollB = max(team_b_rolls)
+    print(maxRollA)
+    print(maxRollB)
     team_A_rolls = []
     team_B_rolls = []
-    beater_rolls = []
+    beater_a_rolls = []
+    beater_b_rolls = []
+    team_A_keeper_rolls = []
+    team_B_keeper_rolls = []
     for int in range(2):
-        beater_rolls.append(random.randint(0, maxRoll-1))
+        beater_a_rolls.append(random.randint(0, maxRollA-1))
+        beater_b_rolls.append(random.randint(0, maxRollB-1))
 
-    for k in range(maxRoll):
+    for k in range(maxRollA):
         r = ()
         if(k % 2 == 0):
             chaser = team_rosters[a]["Chaser1"]
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
+            r = (chaser, a, (random.randint(1, 12) + teamData[chaser]["rank"]))
             if(teamData[chaser]["injured"]):
-                roll = r[1]
-                r = (chaser, roll - 1)
+                roll = r[2]
+                r = (chaser, a, roll - 1)
         else:
             chaser = team_rosters[a]["Chaser2"]
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
+            r = (chaser, a, (random.randint(1, 12) + teamData[chaser]["rank"]))
             if(teamData[chaser]["injured"]):
-                roll = r[1]
-                r = (chaser, roll - 1)
+                roll = r[2]
+                r = (chaser, a, roll - 1)
 
         team_A_rolls.append(r)
         keeper = team_rosters[b]["Keeper"]
-        team_B_rolls.append(random.randint(1, 12) + teamData[keeper]["rank"])
+        roll = (keeper, b, (random.randint(1, 12) + teamData[keeper]["rank"]))
 
         if(teamData[keeper]["injured"]):
-            team_B_rolls[k] -= 1
-            
-    team_A_rolls.sort(reverse=True, key = lambda x: x[1])
-    team_B_rolls.sort(reverse=True)
-    print(team_A_rolls)
+            r = roll[2]
+            roll = (keeper, b, r-1)
+        team_B_keeper_rolls.append(roll)
+
+    for k in range(maxRollB):
+        r = ()
+        if(k % 2 == 0):
+            chaser = team_rosters[b]["Chaser1"]
+            r = (chaser, b, (random.randint(1, 12) + teamData[chaser]["rank"]))
+            if(teamData[chaser]["injured"]):
+                roll = r[2]
+                r = (chaser, b, roll - 1)
+        else:
+            chaser = team_rosters[b]["Chaser2"]
+            r = (chaser, b, (random.randint(1, 12) + teamData[chaser]["rank"]))
+            if(teamData[chaser]["injured"]):
+                roll = r[2]
+                r = (chaser, b, roll - 1)
+
+        team_B_rolls.append(r)
+        keeper = team_rosters[a]["Keeper"]
+        roll = (keeper, a, (random.randint(1, 12) + teamData[keeper]["rank"]))
+
+        if(teamData[keeper]["injured"]):
+            r = roll[2]
+            roll = (keeper, a, r-1)
+        team_A_keeper_rolls.append(roll)
+    team_A_rolls.sort(reverse=True, key=lambda x: x[2])
+    team_B_rolls.sort(reverse=True, key=lambda x: x[2])
+    team_A_keeper_rolls.sort(reverse=True, key=lambda x: x[2])
+    team_B_keeper_rolls.sort(reverse=True, key=lambda x: x[2])
+    defensive_rolls += team_B_keeper_rolls
+    offensive_rolls += team_A_rolls
+    index = 0
+    for r in range(1, len(team_A_keeper_rolls)):
+        roll = team_A_keeper_rolls[r]
+        current_roll = defensive_rolls[index]
+        while(current_roll[2] > roll[2] and index < len(defensive_rolls)-1):
+            index+=1
+            current_roll = defensive_rolls[index]
+        defensive_rolls.insert(index, roll)
+        offensive_rolls.insert(index, team_B_rolls[r])
+    #TO-DO: deal with beater rolls as well
+    beater_rolls = []
+    beater_rolls.append((team_rosters[a]["Beater1"], a, random.randint(0, len(offensive_rolls))))
+    beater_rolls.append((team_rosters[a]["Beater2"], a, random.randint(0, len(offensive_rolls))))
+    beater_rolls.append((team_rosters[b]["Beater1"], b, random.randint(0, len(offensive_rolls))))
+    beater_rolls.append((team_rosters[b]["Beater2"], b, random.randint(0, len(offensive_rolls))))
+    beater_rolls.sort(reverse=True, key = lambda x: x[2])
+    print(beater_rolls)
     print("beater rolls " + str(beater_rolls))
-    #have to keep track of the index 
-    for x in range(maxRoll):
+    #have to keep track of the index
+    beater_index = 0
+    #TO-DO: Modify the loop some more
+    for x in range(len(offensive_rolls)):
         print("Turn " + str(x))
         index_i = x
         if(beater_rolls[0] == x):
@@ -611,8 +666,7 @@ async def on_ready():
         teams[teamData[key]["team"]].append(key)
         if not (teamData[key]["isBot"]):
             print("Not a bot")
-        
-    for member in client.get_channel(client_id).members:
+    for member in client.get_channel(int(client_id)).members:
         if(not member.bot):
             if(teamData[member.name]["captain"] == True):
                 role = discord.utils.get(member.guild.roles, name="Captain")
