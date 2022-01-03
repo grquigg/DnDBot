@@ -14,10 +14,9 @@ Command list:
 -autopop [team_name]: Autopopulates the roster for the team specified
 -start [teamA]: Starts a quidditch game between Gryffindor and teamA
 -start [teamA] [teamB]: Starts a quidditch game between teamA and teamB
--add [player_tag] name [player_name] position [player_position] : adds a new player
+-add [player_tag] name [player_name] position [player_position] : adds a new player. 
 -save: Writes all of the current data onto the json file. 
--reroll:
--search:
--pause:
--stop:
--clear:
+-reroll: Recalculates a roll in the middle of a game. This command will recalculate the roll that just got made by making the player who made the play and the Keeper who opposed the play roll another D12. 
+-search [team_name] [position_name]: Searches through all players in the data and prints out players in the team that play that position.
+-pause: Pauses a match if a match is currently ongoing
+-clear: Clears all xp and rank values to 0.
