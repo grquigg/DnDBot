@@ -505,24 +505,18 @@ async def run_round_headless(teamA, teamB):
     beater_rolls = []
     for int in range(2):
         beater_rolls.append(random.randint(0, maxRoll))
-
     for k in range(maxRoll):
-        r = ()
-        if(k % 2 == 0):
+        if(k % 3 == 0):
             chaser = team_rosters[team_a]["Chaser1"]
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
-            if(teamData[chaser]["injured"]):
-                print("chaser is injured")
-                roll = r[1]
-                r = (chaser, roll - 1)
+        elif(k % 3 == 1):
+            chaser = team_rosters[team_a]["Chaser2"]
         else:
-            chaser = team_rosters[team_b]["Chaser2"]
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
-            if(teamData[chaser]["injured"]):
-                print("chaser is injured")
-                roll = r[1]
-                r = (chaser, roll - 1)
+            chaser = team_rosters[team_a]["Chaser3"]
 
+        r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
+        if(teamData[chaser]["injured"]):
+            roll = r[1]
+            r = (chaser, roll - 1)
         team_A_rolls.append(r)
         keeper = team_rosters[team_b]["Keeper"]
         team_B_rolls.append(random.randint(1, 12) + teamData[keeper]["rank"])
