@@ -23,7 +23,7 @@ class MatchState(Enum):
 
 # def has_role(role_name, member):
 default_path = "./examplefile.json"
-client_id = os.getenv("CLIENT_ID")
+client_id = int(os.getenv("CLIENT_ID"))
 
 async def start_match_headless(channel, teamA, teamB):
     global gameStarted
@@ -410,18 +410,16 @@ async def run_round(a, b, channel):
 
     for k in range(maxRoll):
         r = ()
-        if(k % 2 == 0):
+        if(k % 3 == 0):
             chaser = team_rosters[a]["Chaser1"]
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
-            if(teamData[chaser]["injured"]):
-                roll = r[1]
-                r = (chaser, roll - 1)
-        else:
+        elif(k % 3 == 1):
             chaser = team_rosters[a]["Chaser2"]
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
-            if(teamData[chaser]["injured"]):
-                roll = r[1]
-                r = (chaser, roll - 1)
+        else:
+            chaser = team_rosters[a]["Chaser3"]
+        r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
+        if(teamData[chaser]["injured"]):
+            roll = r[1]
+            r = (chaser, roll - 1)
 
         team_A_rolls.append(r)
         keeper = team_rosters[b]["Keeper"]
