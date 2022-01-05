@@ -666,6 +666,17 @@ async def clear():
         teamData[key]["xp"] = 0
         teamData[key]["rank"] = 0
 
+async def set_param(player, key, value):
+    if player in teamData and key in teamData[player]:
+        bool_vars = ["captain", "injured", "critically_injured", "isBot"]
+        int_vars = ["jersey", "rank", "xp"]
+        if(key in bool_vars):
+            teamData[player][key] = eval(value)
+        elif(key in int_vars):
+            teamData[player][key] = int(value)
+        else:
+            teamData[player][key] = value
+
 async def add_player(params):
     teamData[params[0]] = {}
     for i in range(1, len(params), 2):
@@ -682,7 +693,6 @@ async def add_player(params):
     teams[teamData[params[0]]["team"]].append(teamData[params[0]])
 
 async def auto_populate(teams):
-    print(teams)
     for key, value in teamData.items():
         position = teamData[key]["position"]
         team = teamData[key]["team"]
@@ -707,10 +717,8 @@ async def auto_populate(teams):
     #TO-DO: finish this
     captains = await find_team_captain(teams)
     if(len(captains) != 0): #more complicated than I was hoping it would be
-        print(captains)
         captain = captains[0]
         position = teamData[captain]["position"]
-        print(position)
 
 
 async def fill_roster_message(channel, team):
@@ -736,48 +744,47 @@ async def on_message(message):
             global control_sequence
             control_sequence = True
             return
-    if(message.content.find("-set") != -1): #valid command makes 4 arguments
+    if(message.content.find("-set ") != -1): #valid command makes 4 arguments
     #-set -p [position_name] [player_name]
         generator = (entry for entry in message.author.roles if entry.name=="Admin")
         role = next(generator, None)
         if(teamData[message.author.name]["captain"] == True or role != None):
             m = message.content.split()
-            print(m)
             if(len(m) != 4 or m[1] != "-p"):
                 await message.channel.send("Invalid command. Try using -help -set for more info")
                 return
             await set(message.channel, m, role)
         else:
             await message.channel.send("Can't use the -set command unless you're a captain for an admin")
-    elif message.content.find("-help") != -1: 
+    elif message.content.find("-help ") != -1: 
         await message.channel.send(help_string)
-    elif message.content.find("-name") != -1:
+    elif message.content.find("-name ") != -1:
         m = message.content.split()
         await search_for_param("name", m, message.channel)
 
-    elif message.content.find("-position") != -1:
+    elif message.content.find("-position ") != -1:
         m = message.content.split()
         await search_for_param("position", m, message.channel)
 
-    elif message.content.find("-year") != -1:
+    elif message.content.find("-year ") != -1:
         m = message.content.split()
         await search_for_param("year", m, message.channel)
 
-    elif message.content.find("-rank") != -1:
+    elif message.content.find("-rank ") != -1:
         m = message.content.split()
         await search_for_param("rank", m, message.channel)
 
-    elif message.content.find("-xp") != -1:
+    elif message.content.find("-xp ") != -1:
         m = message.content.split()
         await search_for_param("xp", m, message.channel)
 
-    elif message.content.find("-score") != -1:
+    elif message.content.find("-score ") != -1:
         if(not gameStarted):
             await message.channel.send("No game is ongoing")
             return
         await message.channel.send("Score is " + team_a + ": " + str(scores[team_a]) + ", " +  team_b + ": " + str(scores[team_b]))
         
-    elif message.content.find("-captain") != -1:
+    elif message.content.find("-captain ") != -1:
         m = message.content.split()
         if(len(m) != 2):
             await message.channel.send("Couldn't recognize that command. Try -help")
@@ -789,7 +796,7 @@ async def on_message(message):
         else:
             await message.channel.send(str(team) + " does not have a captain!")
 
-    elif message.content.find("-write") != -1: #helper function for quickly writing extra parameters to the json file without extra hassle
+    elif message.content.find("-write ") != -1: #helper function for quickly writing extra parameters to the json file without extra hassle
         m = message.content.split()
         if(len(m) != 4):
             await message.channel.send("Couldn't recognize that command. Try -help")
@@ -803,7 +810,7 @@ async def on_message(message):
             default_value = int(default_value)
         await write_params(param, default_value, message.channel)
 
-    elif message.content.find("-roster") != -1:
+    elif message.content.find("-roster ") != -1:
         m = message.content.split()
         if(len(m) != 2):
             await message.channel.send("Couldn't recognize that command. Try -help")
@@ -818,7 +825,7 @@ async def on_message(message):
         print(return_message)
         await message.channel.send(return_message)
 
-    elif message.content.find("-autopop") != -1: #autopopulate command takes one argument
+    elif message.content.find("-autopop ") != -1: #autopopulate command takes one argument
         if(gameStarted):
             return
         m = message.content.split()
@@ -828,7 +835,7 @@ async def on_message(message):
         team = m[1]
         await auto_populate(team)
 
-    elif message.content.find("-start") != -1: #have start take one to two arguments
+    elif message.content.find("-start ") != -1: #have start take one to two arguments
         #if there is one argument in the entry, assume that the game is between the team provided and Gryffindor
         m = message.content.split()
         if(gameStarted):
@@ -874,7 +881,7 @@ async def on_message(message):
                     return
             await message.channel.send("Match is ready to start!")
             await start_match_headless(message.channel, teamA, teamB)
-    elif message.content.find("-add") != -1:
+    elif message.content.find("-add ") != -1:
         args = message.content.split()
         required_args = [" name", " position", " team", " captain"]
         for arg in required_args:
@@ -884,10 +891,10 @@ async def on_message(message):
         await add_player(args[1:])
         await message.channel.send("Successfully added " + str(args[1]))
 
-    elif message.content.find("-save") != -1:
+    elif message.content.find("-save ") != -1:
         await save(message.channel)
 
-    elif message.content.find("-sub") != -1: #similar in principle to sub but sub subs in a character who already is in the game
+    elif message.content.find("-sub ") != -1: #similar in principle to sub but sub subs in a character who already is in the game
         print(gameStarted)
         if not (gameStarted):
             await message.channel.send("Can't sub in anyone right now. Consider using -set instead")
@@ -928,14 +935,20 @@ async def on_message(message):
                     await message.channel.send(key + " (injured)")
                 else:
                     await message.channel.send(key)
-    elif message.content.find("-clear") != 1: #clears rank and xp
+    elif message.content.find("-clear") != -1: #clears rank and xp
         await clear()
-    elif message.content.find("-pause") != 1:
+    elif message.content.find("-pause") != -1:
         if(gameStarted):
             gameStarted = False
             await message.channel.send("Game stopped")
         else:
             await message.channel.send("No game in progress")
+    elif message.content.find("-set_param") != -1:
+        m = message.content.split()
+        if(len(m) != 4):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+            return
+        await set_param(m[1], m[2], m[3])
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
 
