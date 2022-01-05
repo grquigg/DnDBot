@@ -1,6 +1,6 @@
 Command list:
 -set -p [position_name] [player_tag] -team [team_name]: Sets player to be the position_name in the teams roster
--sub -p [position_name] [player_tag]: Similar to -set but specifically should be used when substituting players out during a game
+-sub -p [position_name] [player_tag]: Similar to -set but specifically should be used when substituting players out during a game. The original players rolls will be substituted for the new players rolls. 
 -help: Displays command list
 -name [player_tag]: Displays player_tag's character name
 -position [player_tag]: Displays player_tag's position

@@ -14,7 +14,6 @@ intents = discord.Intents.default()
 intents.members = True
 client = discord.Client(intents=intents)
 bots = commands.Bot(command_prefix='!')
-random.seed(6)
 
 class MatchState(Enum):
     TEAM_A_TURN = 1
@@ -84,7 +83,6 @@ async def start_match_headless(channel, teamA, teamB):
     await channel.send("Score is " + str(first_team) + ": " + str(scores[teamA]) + ", " + str(second_team) + ": " + str(scores[teamB]))
     gameStarted = False
     await clean_up()
-    print(gameStarted)
 
 async def find_team_captain(team):
     captains = [i for i in teams[team] if teamData[i]["captain"]]
@@ -93,7 +91,6 @@ async def find_team_captain(team):
 async def write_params(param, default, channel):
     for key in teamData.keys():
         if param not in teamData[key]:
-            print("Not here")
             teamData[key][param] = default
     await save(channel)
 
@@ -203,7 +200,6 @@ async def check_for_level_up(player, channel):
 
 async def search_for_sub(team, position):
     new_player = False
-    print("Player to sub out: " + position[1])
     if("Chaser" in position[0]):
         chaser_list = [] #players that are already in the current match
         if(position[0] == "Chaser1"):
@@ -223,7 +219,6 @@ async def search_for_sub(team, position):
                 if(teamData[char]["position"] == "Chaser"):
                     replacement = char
         if(replacement == ""):
-            print("No replacement found yet, so we must create one")
             list = [i for i in teams[team] if teamData[i]["position"] == "Chaser"]
             replacement = "chaser_" + team + "#" + str(len(list))
             name = "Chaser_ " + team + str(len(list))
@@ -243,7 +238,6 @@ async def search_for_sub(team, position):
                     replacement = char
 
         if(replacement == ""):
-            print("No replacement found yet, so we must create one")
             list = [i for i in teams[team] if teamData[i]["position"] == "Beater"]
             replacement = "beater_" + team + "#" + str(len(list))
             name = "Beater_ " + team + str(len(list))
@@ -258,7 +252,6 @@ async def search_for_sub(team, position):
                     replacement = char
 
         if(replacement == ""):
-            print("No replacement found yet, so we must create one")
             list = [i for i in teams[team] if teamData[i]["position"] == "Seeker"]
             replacement = "seeker_" + team + "#" + str(len(list))
             name = "Seeker_ " + team + str(len(list))
@@ -277,7 +270,6 @@ async def reroll(channel):
     global score
     if(team_rerolls > 0):
         player = team_A_rolls[index_i][0]
-        print(player)
         rerollA = random.randint(1, 12) + teamData[player]["rank"]
         if(teamData[player]["injured"]):
             rerollA -= 1
@@ -286,8 +278,6 @@ async def reroll(channel):
             rerollB -= 1
         team_A_rolls[index_i] = (player, rerollA + team_A_rolls[index_i][1])
         team_B_rolls[index_i] = team_B_rolls[index_i] + rerollB
-        print(team_A_rolls[index_i])
-        print(team_B_rolls[index_i])
         if (team_A_rolls[index_i][1] > team_B_rolls[index_i]):
             teamData[team_A_rolls[index_i][0]]["xp"] += 25
             await channel.send(teamData[team_A_rolls[index_i][0]]["name"] + " has scored a goal")
@@ -334,12 +324,10 @@ async def beater_turn(beater, channel, a, b):
             if(channel != None):
                 await channel.send("Need to substitute for the position " + str(hit[0]))
             team_rosters[b][hit[0]] = None
-            print(hit[0])
             while(team_rosters[b][hit[0]] == None):
                 if(channel == None or b != "Gryffindor"):
                     print("Call search for sub")
                     await search_for_sub(b, hit)
-                    print("We will get stuck here")
                 await asyncio.sleep(1)
         else:
             teamData[hit[1]]["injured"] = True
@@ -390,7 +378,6 @@ async def run_round(a, b, channel):
     global quaffle_possession
     quaffle_possession = "" #keeps track of who has the quaffle
     last_roll_success = False #keeps track of whether the last roll was a success or not (used for flavor text)
-    print(scores)
     team_a = a
     team_b = b
     team_rerolls = 3
@@ -401,7 +388,6 @@ async def run_round(a, b, channel):
         team_rolls.append(roll)
 
     maxRoll = max(team_rolls)
-    print(maxRoll)
     team_A_rolls = []
     team_B_rolls = []
     beater_rolls = []
@@ -430,14 +416,11 @@ async def run_round(a, b, channel):
             
     team_A_rolls.sort(reverse=True, key = lambda x: x[1])
     team_B_rolls.sort(reverse=True)
-    print(team_A_rolls)
-    print("beater rolls " + str(beater_rolls))
     #have to keep track of the index 
     for x in range(maxRoll):
         print("Turn " + str(x))
         index_i = x
         if(beater_rolls[0] == x):
-            print("beater turn")
             beater = teamData[team_rosters[a]["Beater1"]]
             await beater_turn(beater, channel, a, b)
 
@@ -527,7 +510,6 @@ async def run_round_headless(teamA, teamB):
             
     team_A_rolls.sort(reverse=True, key = lambda x: x[1])
     team_B_rolls.sort(reverse=True)
-    print(team_A_rolls)
 
     #have to keep track of the index 
     for x in range(maxRoll):
@@ -585,9 +567,6 @@ async def on_ready():
         for line in help:
             helper.append(line)
     help_string = "".join(helper)
-    print(help_string)
-    # print(discord.utils.get(client.guilds[0].roles, name="Captain"))
-    # print(discord.utils.get(client.guilds[0].roles, name="Team A"))
     for team in team_list:
         team_rosters[team] = {}
         teams[team] = []
