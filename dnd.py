@@ -124,7 +124,7 @@ async def start_match(channel, teamA, teamB):
         await channel.send(teamB + " will be on the offensive first")
         first_team = teamB
         second_team = teamA
-    for i in range(num_rounds):
+    for i in range(1):
         await run_round(first_team, second_team, channel)
         await channel.send("Now it is " + second_team + "'s turn to be on the offense")
         await channel.send("Type 'continue' to continue")
@@ -264,6 +264,8 @@ async def search_for_sub(team, position):
     print("Player to sub in: " + replacement)
     team_rosters[team][position[0]] = replacement
     print(team_rosters[team])
+#special ability/bonus
+#also display scores
 
 async def reroll(channel):
     global team_rerolls
@@ -304,7 +306,9 @@ async def beater_turn(beater, channel, a, b):
     roll = random.randint(1, 12) + beater["rank"]
     if (beater["injured"]):
         roll =- 1
-    if(roll > 8):
+    #1 should be crit fail, hit own team member
+    #2 or 3 foul 
+    if(roll < 8):
         if(channel != None):
             await channel.send(beater["name"] + " tried to hit someone but missed")
     elif(roll >= 8 or roll < 12):
@@ -842,7 +846,6 @@ async def on_message(message):
             return
         if(len(m) != 2 and len(m) != 3):
             message.channel.send("Invalid number of arguments")
-        print("Start")
         if(len(m) == 2):
             team = m[1]
             if team not in teams:
