@@ -541,6 +541,26 @@ async def run_round_headless(teamA, teamB):
         else:
             continue
 
+async def load_roster_from_file(file_name):
+    with open(file_name, "r", encoding="utf8") as file:
+        for line in file:
+            data = json.loads(line)
+    for key, value in data.items():
+        if key not in team_list:
+            return
+        for position, player in value.items():
+            if position not in team_rosters[key]:
+                print("Invalid position name")
+            else:
+                if player not in teamData:
+                    print("Invalid player name")
+                else:
+                    if(teamData[player]["team"] != key):
+                        print("Player not in team")
+                    else:
+                        team_rosters[key][position] = player
+
+
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
@@ -718,6 +738,7 @@ async def auto_populate(teams):
                     team_rosters[team]["Keeper"] = key
                 if position == "Seeker" and team_rosters[team]["Seeker"] == None:
                     team_rosters[team]["Seeker"] = key
+    print(team_rosters[teams])
     #TO-DO: finish this
     captains = await find_team_captain(teams)
     if(len(captains) != 0): #more complicated than I was hoping it would be
@@ -946,6 +967,12 @@ async def on_message(message):
             await message.channel.send("Game stopped")
         else:
             await message.channel.send("No game in progress")
+    elif message.content.find("-load_roster ") != -1:
+        m = message.content.split()
+        if(len(m) != 2):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+            return
+        await load_roster_from_file(m[1])
     elif message.content.find("-set_param") != -1:
         m = message.content.split()
         if(len(m) != 4):
