@@ -576,7 +576,7 @@ async def on_ready():
     global teamB_score
     global team_list
     global help_string
-    team_list = ["Gryffindor", "Ravenclaw", "Slytherin", "Hufflepuff"]
+    team_list = ["Gryffindor", "Gryffindor2", "Ravenclaw", "Ravenclaw2", "Slytherin", "Slytherin2", "Hufflepuff", "Hufflepuff2"]
     gameStarted = False
     DEVELOPMENT_MODE = True
     teams = {}
@@ -716,34 +716,39 @@ async def add_player(params):
     #add defaults for other params too
     teams[teamData[params[0]]["team"]].append(teamData[params[0]])
 
-async def auto_populate(teams):
-    for key, value in teamData.items():
-        position = teamData[key]["position"]
-        team = teamData[key]["team"]
-        if teams==team:
-            if position == "Beater":
-                if team_rosters[team]["Beater1"] == None:
-                    team_rosters[team]["Beater1"] = key
-                elif team_rosters[team]["Beater2"] == None:
-                    team_rosters[team]["Beater2"] = key 
-            elif position == "Chaser":
-                if team_rosters[team]["Chaser1"] == None:
-                    team_rosters[team]["Chaser1"] = key
-                elif team_rosters[team]["Chaser2"] == None:
-                    team_rosters[team]["Chaser2"] = key
-                elif team_rosters[team]["Chaser3"] == None:
-                    team_rosters[team]["Chaser3"] = key
-            else:
-                if position == "Keeper" and team_rosters[team]["Keeper"] == None:
-                    team_rosters[team]["Keeper"] = key
-                if position == "Seeker" and team_rosters[team]["Seeker"] == None:
-                    team_rosters[team]["Seeker"] = key
-    print(team_rosters[teams])
-    #TO-DO: finish this
-    captains = await find_team_captain(teams)
-    if(len(captains) != 0): #more complicated than I was hoping it would be
-        captain = captains[0]
-        position = teamData[captain]["position"]
+async def auto_populate(team_to_fill):
+    if team_to_fill in team_list:
+        for key, value in teamData.items():
+            position = teamData[key]["position"]
+            team = teamData[key]["team"]
+            if team_to_fill.find(team) != -1:
+                #prevent same player from being assigned to the same team twice
+                bool = next((team[0] for team in team_rosters.items() for t in team[1].items() if t[1] == key), None)
+                print(bool)
+                if (bool == None):
+                    if position == "Beater":
+                        if team_rosters[team_to_fill]["Beater1"] == None:
+                            team_rosters[team_to_fill]["Beater1"] = key
+                        elif team_rosters[team_to_fill]["Beater2"] == None:
+                            team_rosters[team_to_fill]["Beater2"] = key 
+                    elif position == "Chaser":
+                        if team_rosters[team_to_fill]["Chaser1"] == None:
+                            team_rosters[team_to_fill]["Chaser1"] = key
+                        elif team_rosters[team_to_fill]["Chaser2"] == None:
+                            team_rosters[team_to_fill]["Chaser2"] = key
+                        elif team_rosters[team_to_fill]["Chaser3"] == None:
+                            team_rosters[team_to_fill]["Chaser3"] = key
+                    else:
+                        if position == "Keeper" and team_rosters[team_to_fill]["Keeper"] == None:
+                            team_rosters[team_to_fill]["Keeper"] = key
+                        if position == "Seeker" and team_rosters[team_to_fill]["Seeker"] == None:
+                            team_rosters[team_to_fill]["Seeker"] = key
+        #TO-DO: finish this
+        captains = await find_team_captain(team_to_fill)
+        print(team_rosters)
+        if(len(captains) != 0): #more complicated than I was hoping it would be
+            captain = captains[0]
+            position = teamData[captain]["position"]
 
 
 async def fill_roster_message(channel, team):
@@ -905,6 +910,8 @@ async def on_message(message):
                     return
             await message.channel.send("Match is ready to start!")
             await start_match_headless(message.channel, teamA, teamB)
+    elif message.content.find("-start_practice ") != -1:
+        print("Start practice")
     elif message.content.find("-add ") != -1:
         args = message.content.split()
         required_args = [" name", " position", " team", " captain"]
