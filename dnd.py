@@ -1,3 +1,5 @@
+from email import message_from_string
+import re
 import discord
 from discord import team
 from discord.ext import commands
@@ -8,7 +10,7 @@ import random
 import asyncio
 from discord import message
 from dotenv import load_dotenv
-
+random.seed(111)
 load_dotenv()
 intents = discord.Intents.default()
 intents.members = True
@@ -22,6 +24,7 @@ class MatchState(Enum):
 
 # def has_role(role_name, member):
 default_path = "./examplefile.json"
+flavor_text_path = "./flavor_text.json"
 client_id = int(os.getenv("CLIENT_ID"))
 
 async def start_match_headless(channel, teamA, teamB):
@@ -124,14 +127,23 @@ async def start_match(channel, teamA, teamB):
         await channel.send(teamB + " will be on the offensive first")
         first_team = teamB
         second_team = teamA
-    for i in range(1):
+    await run_round(first_team, second_team, channel, init=True)
+    await channel.send("Type 'continue' to continue")
+    while(control_sequence == False):
+        await asyncio.sleep(1)
+    await channel.send("Possession has turned over to " + str(second_team))
+    await run_round(second_team, first_team, channel)
+    await channel.send("Type 'continue' to continue")
+    while(control_sequence == False):
+        await asyncio.sleep(1)
+    for i in range(1, 1):
+        await channel.send("The {house} team now has control of the Quaffle".format(house=first_team))
         await run_round(first_team, second_team, channel)
-        await channel.send("Now it is " + second_team + "'s turn to be on the offense")
+        await channel.send("Possession has turned over to {house}".format(house=second_team))
         await channel.send("Type 'continue' to continue")
         while(control_sequence == False):
             await asyncio.sleep(1)
         await run_round(second_team, first_team, channel)
-        await channel.send("Score is " + first_team + ": " + str(scores[teamA]) + ", " +  second_team + ": " + str(scores[teamB]))
     teamA_rolls = 0
     teamB_rolls = 0 
     for j in range(3):
@@ -139,7 +151,13 @@ async def start_match(channel, teamA, teamB):
         teamB_rolls += random.randint(1, 6)
     teamA_rolls += teamData[team_rosters[first_team]["Seeker"]]["rank"]
     teamB_rolls += teamData[team_rosters[second_team]["Seeker"]]["rank"]
-
+    while (teamA_rolls == teamB_rolls):
+        for j in range(3):
+            teamA_rolls += random.randint(1, 6)
+            teamB_rolls += random.randint(1, 6)
+        teamA_rolls += teamData[team_rosters[first_team]["Seeker"]]["rank"]
+        teamB_rolls += teamData[team_rosters[second_team]["Seeker"]]["rank"]
+    
     if(teamData[team_rosters[first_team]["Seeker"]]["injured"]):
         teamA_rolls -= 1
     if(teamData[team_rosters[second_team]["Seeker"]]["injured"]):
@@ -147,28 +165,177 @@ async def start_match(channel, teamA, teamB):
 
     teamData[team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
     teamData[team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
-    
     if(teamA_rolls > teamB_rolls):
         scores[teamA] += 150
-        seeker = teamData[team_rosters[first_team]["Seeker"]]["name"]
-        teamData[team_rosters[first_team]["Seeker"]]["xp"] += 150
-        await channel.send(seeker + " has caught the Snitch!")
-    elif (teamB_rolls > teamA_rolls):
+        seeker = teamData[team_rosters[teamA]["Seeker"]]
+    else:
         scores[teamB] += 150
-        seeker = teamData[team_rosters[second_team]["Seeker"]]["name"]
-        teamData[team_rosters[second_team]["Seeker"]]["xp"] += 150
-        await channel.send(seeker + " has caught the Snitch!")
+        seeker = teamData[team_rosters[teamB]["Seeker"]]
+
+    print(seeker)
+    seeker["xp"] += 150
+    await channel.send("{sk} has caught the Snitch! Ending the game after {r} rounds!".format(sk=seeker["name"], r=num_rounds))
     await check_for_level_up(teamData[team_rosters[first_team]["Seeker"]], channel)
     await check_for_level_up(teamData[team_rosters[second_team]["Seeker"]], channel)
-    await channel.send("Final score is " + first_team + ": " + str(scores[teamA]) + ", " +  second_team + ": " + str(scores[teamB]))
+    final_score = "The match has officially ended. {a} has scored {a_score} points. {b} has scored {b_score} points. "
     if(scores[teamA] > scores[teamB]):
-        await channel.send(first_team + " wins!")
+        final_score += "{a} wins the match!"
     elif(scores[teamB] > scores[teamA]):
-        await channel.send(second_team + " wins!")
+        final_score += "{b} wins the match!"
     else:
         await channel.send("The score is a tie, so " + second_team + " wins!")
+    #need to verify that this actually prints out what it's supposed to
+    await channel.send(final_score.format(a=teamA, a_score=scores[teamA], b=teamB, b_score=scores[teamB]))
     gameStarted = False
     await clean_up()
+
+async def generateNextMove(moveType):
+    index = random.randint(0, len(flavorText["moves"][moveType])-1)
+    return flavorText["moves"][moveType][index]
+
+async def generateNextText(textType):
+    index = random.randint(0, len(flavorText["hits"][textType])-1)
+    return flavorText["hits"][textType][index]
+
+async def generateNextMissText(textType):
+    index = random.randint(0, len(flavorText["misses"][textType])-1)
+    return flavorText["misses"][textType][index]
+
+async def generateNextBeaterText(textType, position="beater"):
+    if(textType == "fouls"):
+        index = random.randint(0, len(flavorText["fouls"][position])-1)
+        return flavorText[textType][position][index]
+    index = random.randint(0, len(flavorText[textType])-1)
+    return flavorText[textType][index]
+
+async def generateNextActionText():
+    index = random.randint(0, len(flavorText["fouls"]["moves"]))
+    return flavorText["fouls"]["moves"][index]
+
+async def run_round(a, b, channel, init=False):
+    global control_sequence
+    global team_A_rolls
+    global team_B_rolls
+    global index_i
+    global team_rerolls
+    global team_a
+    global team_b
+    global quaffle_possession
+    global prev_possession
+    quaffle_possession = "" #keeps track of who has the quaffle
+    prev_possession = ""
+    last_roll_success = False #keeps track of whether the last roll was a success or not (used for flavor text)
+    team_a = a
+    team_b = b
+    team_rerolls = 3
+    control_sequence = False
+    team_rolls = []
+    for j in range(3):
+        roll = random.randint(1, 12)
+        team_rolls.append(roll)
+
+    maxRoll = max(team_rolls)
+    team_A_rolls = []
+    team_B_rolls = []
+    beater_rolls = []
+    for int in range(2):
+        beater_rolls.append(random.randint(0, maxRoll-1))
+
+    for k in range(maxRoll):
+        r = ()
+        if(k % 3 == 0):
+            chaser = team_rosters[a]["Chaser1"]
+        elif(k % 3 == 1):
+            chaser = team_rosters[a]["Chaser2"]
+        else:
+            chaser = team_rosters[a]["Chaser3"]
+        r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
+        if(teamData[chaser]["injured"]):
+            roll = r[1]
+            r = (chaser, roll - 1)
+
+        team_A_rolls.append(r)
+        keeper = team_rosters[b]["Keeper"]
+        team_B_rolls.append(random.randint(1, 12) + teamData[keeper]["rank"])
+
+        if(teamData[keeper]["injured"]):
+            team_B_rolls[k] -= 1
+            
+    team_A_rolls.sort(reverse=True, key = lambda x: x[1])
+    team_B_rolls.sort(reverse=True)
+    #have to keep track of the index
+    if(init):
+        print("init")
+        await channel.send("{chaser} has caught the Quaffle! {house} starts the game".format(chaser = teamData[team_A_rolls[0][0]]["name"], house=a))
+        quaffle_possession = team_A_rolls[0][0]
+        prev_possession = team_A_rolls[0][0]
+    else:
+        quaffle_possession = team_A_rolls[0][0]
+    successes = 0
+    misses = 0
+    for x in range(maxRoll):
+        index_i = x
+        offensiveMove = await generateNextMove("offensive")
+        if(beater_rolls[0] == x):
+            print("Beater 1 turn")
+            beater = teamData[team_rosters[a]["Beater1"]]
+            await beater_turn(beater, channel, a, b)
+
+        if(beater_rolls[1] == x):
+            print("Beater 2 turn")
+            beater = teamData[team_rosters[a]["Beater2"]]
+            await beater_turn(beater, channel, a, b)
+
+        if (team_A_rolls[x][1] > team_B_rolls[x]):
+            print("success")
+            teamData[team_A_rolls[x][0]]["xp"] += 25
+            keeper = team_rosters[b]["Keeper"]
+            if(quaffle_possession == team_A_rolls[x][0]): #same
+                same = await generateNextText("same")
+                print(same)
+                counter = await generateNextMove("counter")
+                #there should be a distinct move name for this
+                #also if this happens more than once, then stop it
+                #there should be a roll for "interception"
+                await channel.send("{chaser} {action} {opposing} with a {counter} and scores a goal using a {offensive} to get past {keeper}".format(chaser=teamData[team_A_rolls[x][0]]["name"], 
+                action=same, opposing=b, counter=counter, offensive=offensiveMove, keeper=teamData[keeper]["name"]))
+                
+            else:
+                different = await generateNextText("different")
+                counter = await generateNextMove("counter")
+                string = "{q} {dif} with a {counter}, passing the Quaffle to {r} who scores a goal with a {offensive}"
+                await channel.send(string.format(q=teamData[quaffle_possession]["name"], dif=different, counter=counter, r=teamData[team_A_rolls[x][0]]["name"], offensive=offensiveMove))
+            await check_for_level_up(teamData[team_A_rolls[x][0]], channel)
+            scores[team_a] += 30
+            successes += 1
+            quaffle_possession = team_A_rolls[x][0]
+        elif(team_A_rolls[x][1] < team_B_rolls[x]):
+            print("miss")
+            teamData[team_A_rolls[x][0]]["xp"] += 5
+            keeper = team_rosters[b]["Keeper"]
+            textType = "non-final"
+            if(x == maxRoll-1):
+                textType = "final"
+            response = await generateNextMissText(textType)
+            print(response)
+            teamData[keeper]["xp"] += 10
+            misses += 1
+            string = "{keeper} {response} {chaser}'s {offensive}. Possession returns to {other}."
+            await channel.send(string.format(keeper = teamData[keeper]["name"], response = response, chaser = teamData[team_A_rolls[x][0]]["name"], offensive = offensiveMove, other=a))
+            await check_for_level_up(teamData[team_A_rolls[x][0]], channel)
+            await check_for_level_up(teamData[keeper], channel)
+        else:
+            continue
+        await channel.send("Type 'continue' to continue")
+        while(control_sequence == False):
+            await asyncio.sleep(1)
+        control_sequence = False
+    finalMove = await generateNextMissText("final")
+    flavor = await generateNextMissText("sf")
+    string = "{keeper} catches {quaffle}'s attack, {final} the {off} {f}"
+    await channel.send(string.format(keeper = teamData[team_rosters[b]["Keeper"]]["name"], quaffle = teamData[quaffle_possession]["name"], final=finalMove, off=a, f=flavor))
+    score = "{teamA} scores {success} goals and {teamB} blocks {miss} goals. The total score thus far is {teamA}: {scoreA}, {teamB}: {scoreB}"
+    await channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = scores[team_a], scoreB = scores[team_b]))
 
 async def check_for_level_up(player, channel):
     if(player["xp"] > 100 and player["rank"] < 1):
@@ -254,13 +421,14 @@ async def search_for_sub(team, position):
         if(replacement == ""):
             list = [i for i in teams[team] if teamData[i]["position"] == "Seeker"]
             replacement = "seeker_" + team + "#" + str(len(list))
-            name = "Seeker_ " + team + str(len(list))
+            name = "Seeker_" + team + str(len(list))
             teams[team].append(replacement)
             new_player = True
         pos = "Seeker"
     if(new_player):
-        args = [replacement, "name", name, "position", pos, "team", team]
-        await add_player(args)
+        string = "-add {r} name {n} position {p} team {t} captain false"
+        print(string.format(r = replacement, n = name, p = pos, t = team))
+        await add_player(string.format(r = replacement, n = name, p = pos, t = team))
     print("Player to sub in: " + replacement)
     team_rosters[team][position[0]] = replacement
     print(team_rosters[team])
@@ -302,16 +470,82 @@ async def reroll(channel):
         await channel.send("No more rerolls left")
 
 async def beater_turn(beater, channel, a, b):
-    print("Beater turn")
+    response = await generateNextBeaterText("crit")
     roll = random.randint(1, 12) + beater["rank"]
     if (beater["injured"]):
         roll =- 1
     #1 should be crit fail, hit own team member
-    #2 or 3 foul 
-    if(roll < 8):
+    #2 or 3 foul
+    print("Roll: " + str(roll))
+    #initial roll is 7
+    if(roll == 1): #they are going to accidentally hit their own teammate
+        min_roll = 12
+        hit_player = -1
+        for int in range(6):
+            comparison_roll = random.randint(1, 12)
+            if(min_roll > comparison_roll):
+                min_roll = comparison_roll
+                hit_player = int
+        hit = list(team_rosters[a].items())[hit_player]
         if(channel != None):
-            await channel.send(beater["name"] + " tried to hit someone but missed")
+            await channel.send("{b} has mistakenly directed the bludger at their own teammate, {h}".format(b=beater["name"], h=teamData[hit[1]]["name"]))
+            if(teamData[hit[1]]["injured"] == True):
+                print("Player was already injured")
+                response = "{b} has knocked {h} out of the game! {a} will have to substitute"
+                await channel.send(response.format(b=beater["name"], h=teamData[hit[1]]["name"], a=a))
+                # response = await generateNextText("crit") #it appears as though this was the problem
+                
+    elif(roll > 1 and roll <= 3):
+        print("DETERMINE FOUL")
+        min_roll = 12
+        
+        foul_player = -1
+        for int in range(6):
+            comparison_roll = random.randint(1, 12)
+            if(min_roll > comparison_roll):
+                min_roll = comparison_roll
+                foul_player = int
+        foul = list(team_rosters[a].items())[foul_player]
+        while("Seeker" in foul[0]): #seekers cannot commit fouls
+            foul_player = -1
+            for int in range(6):
+                comparison_roll = random.randint(1, 12)
+                if(min_roll > comparison_roll):
+                    min_roll = comparison_roll
+                    foul_player = int
+            foul = list(team_rosters[a].items())[foul_player]
+        print(foul)
+        text = ""
+        action = ""
+        if("Chaser" in foul[0]):
+            text = await generateNextBeaterText("fouls", position="chaser")
+            action = await generateNextBeaterText("fouls", position="moves")
+        elif("Keeper" in foul[0]):
+            text = await generateNextBeaterText("fouls", position="keeper")
+        elif("Beater" in foul[0]):
+            text = await generateNextBeaterText("fouls")
+            action = await generateNextBeaterText("fouls", position="moves")
+        print(text)
+        await channel.send(text.format(name=foul[1], house=a, action=action, number=teamData[foul[1]]["jersey"]))
+        scores[a] -= 10
+        # raise NotImplementedError("Need to send text to the channel based on all of the previous prompts")
+        # raise NotImplementedError("fix local variable 'action' referenced before assignment error")
+    elif(roll>= 4 and roll < 8):
+        #generate text
+        text = await generateNextBeaterText("miss")
+        print(text)
+        min_roll = random.randint(1, 12)
+        hit_player = 0
+        for int in range(6):
+            comparison_roll = random.randint(1, 12)
+            if(min_roll > comparison_roll):
+                min_roll = comparison_roll
+                hit_player = int
+        hit = list(team_rosters[b].items())[hit_player]
+        await channel.send(text.format(beater=beater["name"], opp_name=teamData[hit[1]]["name"], house=b, num=teamData[hit[1]]["jersey"]))
     elif(roll >= 8 or roll < 12):
+        text = await generateNextBeaterText("minor")
+        print(text)
         min_roll = random.randint(1, 12)
         hit_player = 0
         for int in range(6):
@@ -336,8 +570,8 @@ async def beater_turn(beater, channel, a, b):
         else:
             teamData[hit[1]]["injured"] = True
             if(channel != None):
-                await channel.send(beater["name"] + " hit " + str(teamData[hit[1]]["name"]) + ", minorly injuring them")
-                await channel.send(str(teamData[hit[1]]["name"]) + " is now injured and will roll with disadvantage")
+                await channel.send(text.format(beater=beater["name"], opp_name=teamData[hit[1]]["name"], opp_pos=teamData[hit[1]]["position"]))
+                await channel.send("{opp_name} is now injured and will roll with disadvantage".format(opp_name=teamData[hit[1]]["name"]))
 
         beater["xp"] += 50
         await check_for_level_up(beater, channel)
@@ -370,109 +604,6 @@ async def clean_up():
         if(teamData[key]["critically_injured"]):
             teamData[key]["critically_injured"] = False
             teamData[key]["injured"] = True
-            
-async def run_round(a, b, channel):
-    global control_sequence
-    global team_A_rolls
-    global team_B_rolls
-    global index_i
-    global team_rerolls
-    global team_a
-    global team_b
-    global quaffle_possession
-    quaffle_possession = "" #keeps track of who has the quaffle
-    last_roll_success = False #keeps track of whether the last roll was a success or not (used for flavor text)
-    team_a = a
-    team_b = b
-    team_rerolls = 3
-    control_sequence = False
-    team_rolls = []
-    for j in range(3):
-        roll = random.randint(1, 12)
-        team_rolls.append(roll)
-
-    maxRoll = max(team_rolls)
-    team_A_rolls = []
-    team_B_rolls = []
-    beater_rolls = []
-    for int in range(2):
-        beater_rolls.append(random.randint(0, maxRoll-1))
-
-    for k in range(maxRoll):
-        r = ()
-        if(k % 3 == 0):
-            chaser = team_rosters[a]["Chaser1"]
-        elif(k % 3 == 1):
-            chaser = team_rosters[a]["Chaser2"]
-        else:
-            chaser = team_rosters[a]["Chaser3"]
-        r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
-        if(teamData[chaser]["injured"]):
-            roll = r[1]
-            r = (chaser, roll - 1)
-
-        team_A_rolls.append(r)
-        keeper = team_rosters[b]["Keeper"]
-        team_B_rolls.append(random.randint(1, 12) + teamData[keeper]["rank"])
-
-        if(teamData[keeper]["injured"]):
-            team_B_rolls[k] -= 1
-            
-    team_A_rolls.sort(reverse=True, key = lambda x: x[1])
-    team_B_rolls.sort(reverse=True)
-    #have to keep track of the index 
-    for x in range(maxRoll):
-        print("Turn " + str(x))
-        index_i = x
-        if(beater_rolls[0] == x):
-            beater = teamData[team_rosters[a]["Beater1"]]
-            await beater_turn(beater, channel, a, b)
-
-        if(beater_rolls[1] == x):
-            beater = teamData[team_rosters[a]["Beater2"]]
-            await beater_turn(beater, channel, a, b)
-
-        if (team_A_rolls[x][1] > team_B_rolls[x]):
-
-            teamData[team_A_rolls[x][0]]["xp"] += 25
-            if(quaffle_possession == team_A_rolls[x][0]):
-                #there should be a distinct move name for this
-                #also if this happens more than once, then stop it
-                #there should be a roll for "interception"
-                await channel.send(teamData[team_A_rolls[x][0]]["name"] + " somehow manages to score again!")
-            else:
-                if(quaffle_possession != ""):
-                    await channel.send(teamData[quaffle_possession]["name"] + " passes the quaffle to " + teamData[team_A_rolls[x][0]]["name"]
-                    + " and " + teamData[team_A_rolls[x][0]]["name"] + " scores a goal!")
-                else:
-                    await channel.send(teamData[team_A_rolls[x][0]]["name"] + " scores a goal!") 
-            await check_for_level_up(teamData[team_A_rolls[x][0]], channel)
-            scores[team_a] += 30
-            quaffle_possession = team_A_rolls[x][0]
-            last_roll_success = True
-        elif(team_A_rolls[x][1] < team_B_rolls[x]):
-            if(team_B_rolls[x] - team_A_rolls[x][1] <= 2):
-                await channel.send(teamData[team_A_rolls[x][0]]["name"] + " almost managed to score a goal but " + teamData[keeper]["name"] + " blocked it at the last second!")
-                quaffle_possession = team_A_rolls[x][0]
-                if(a != "Gryffindor"):
-                    print("Reroll")
-                    await reroll(channel)
-            else:
-                await channel.send(teamData[keeper]["name"] + " has blocked " + teamData[team_A_rolls[x][0]]["name"] + " from scoring")
-                quaffle_possession = team_A_rolls[x][0]
-            last_roll_success = False
-            teamData[team_A_rolls[x][0]]["xp"] += 5
-            keeper = team_rosters[b]["Keeper"]
-            teamData[keeper]["xp"] += 10
-            await check_for_level_up(teamData[team_A_rolls[x][0]], channel)
-            await check_for_level_up(teamData[keeper], channel)
-        else:
-            continue
-        await channel.send("Type 'continue' to continue")
-        while(control_sequence == False):
-            await asyncio.sleep(1)
-        control_sequence = False
-    await channel.send(teamData[quaffle_possession]["name"] + " tries to score but the Keeper " + teamData[team_rosters[b]["Keeper"]]["name"] + " blocks it and takes possession of it.")
 
 async def run_round_headless(teamA, teamB):
     global team_A_rolls
@@ -566,6 +697,7 @@ async def on_ready():
     print('We have logged in as {0.user}'.format(client))
     global DEVELOPMENT_MODE
     global teamData
+    global flavorText
     global gameType
     global gameStarted
     global matchState
@@ -590,6 +722,10 @@ async def on_ready():
     with open("help.txt", "r", encoding="utf8") as help:
         for line in help:
             helper.append(line)
+    with open(flavor_text_path, "r", encoding="utf8") as f:
+        for line in f:
+            flavorText = json.loads(line)
+    
     help_string = "".join(helper)
     for team in team_list:
         team_rosters[team] = {}
@@ -690,8 +826,8 @@ async def clear():
         teamData[key]["xp"] = 0
         teamData[key]["rank"] = 0
 
-async def set_param(player, key, value):
-    if player in teamData and key in teamData[player]:
+async def set_param(channel, player, key, value):
+    if player in teamData:
         bool_vars = ["captain", "injured", "critically_injured", "isBot"]
         int_vars = ["jersey", "rank", "xp"]
         if(key in bool_vars):
@@ -699,15 +835,39 @@ async def set_param(player, key, value):
         elif(key in int_vars):
             teamData[player][key] = int(value)
         else:
-            teamData[player][key] = value
+            if key in teamData[player]:
+                teamData[player][key] = value
+            else:
+                await channel.send("Not a valid attribute")
+        print(teamData[player][key])
+    else:
+        await channel.send("Player not found in database")
 
-async def add_player(params):
+async def add_player(message):
+    params = message.split(' ')
+    # AttributeError: 'list' object has no attribute 'split'
+    params = params[1:]
+    #do special processing of the string
+    required_args = ["name", "position", "team", "captain"]
     teamData[params[0]] = {}
-    for i in range(1, len(params), 2):
-        if(params[i+1] == "True" or params[i+1] == "False"):
-            teamData[params[0]][params[i]] = eval(params[i+1])
+    for j in range(len(required_args)-1):
+        l = len(required_args[j])
+        post_index = message.find(required_args[j+1])
+        current_index = message.find(required_args[j])
+        subst = message[current_index+l+1:post_index-1]
+        print("Subst:", subst)
+        if(subst == "True" or subst == "False"):
+            teamData[params[0]][required_args[j]] = eval(subst)
         else:
-            teamData[params[0]][params[i]] = params[i+1]
+            teamData[params[0]][required_args[j]] = subst
+    post_index = message.find(required_args[len(required_args)-1])
+    l = len(required_args[len(required_args)-1])
+    print(message[post_index+l+1:])
+    subst = message[post_index+l+1:]
+    if(subst == "True" or subst == "False"):
+        teamData[params[0]][required_args[len(required_args)-1]] = eval(subst)
+    else:
+        teamData[params[0]][required_args[len(required_args)-1]] = subst
     teamData[params[0]]["rank"] = 0
     teamData[params[0]]["xp"] = 0
     teamData[params[0]]["critically_injured"] = False
@@ -760,8 +920,16 @@ async def fill_roster_message(channel, team):
     team_roster_invalid = False
     return team_roster_invalid
 
+async def displayRoster(channel, team):
+    return_message = team
+    for key, value in team_rosters[team].items():
+        return_message += "\n" + key + "\t" + str(value)
+    print(return_message)
+    await channel.send(return_message)
+
 @client.event
 async def on_message(message):
+    print("Message")
     global gameStarted
     if message.author.bot:
         return;
@@ -786,7 +954,7 @@ async def on_message(message):
             await set(message.channel, m, role)
         else:
             await message.channel.send("Can't use the -set command unless you're a captain for an admin")
-    elif message.content.find("-help ") != -1: 
+    elif message.content.find("-help") != -1: 
         await message.channel.send(help_string)
     elif message.content.find("-name ") != -1:
         m = message.content.split()
@@ -849,11 +1017,7 @@ async def on_message(message):
         if team not in team_rosters:
             await message.channel.send("Didn't recognize the team name")
             return
-        return_message = team
-        for key, value in team_rosters[team].items():
-            return_message += "\n" + key + "\t" + str(value)
-        print(return_message)
-        await message.channel.send(return_message)
+        await displayRoster(message.channel, team)
 
     elif message.content.find("-autopop ") != -1: #autopopulate command takes one argument
         if(gameStarted):
@@ -864,30 +1028,17 @@ async def on_message(message):
             return
         team = m[1]
         await auto_populate(team)
+        await displayRoster(message.channel, team)
+        await message.channel.send("Use the -set command to make any changes to the roster")
 
     elif message.content.find("-start ") != -1: #have start take one to two arguments
         #if there is one argument in the entry, assume that the game is between the team provided and Gryffindor
         m = message.content.split()
         if(gameStarted):
             return
-        if(len(m) != 2 and len(m) != 3):
+        if(len(m) != 3):
             message.channel.send("Invalid number of arguments")
-        if(len(m) == 2):
-            team = m[1]
-            if team not in teams:
-                await message.channel.send("Not a valid team name")
-                return
-            print(team_rosters[team])
-            for key, value in team_rosters[team].items():
-                if value == None:
-                    await message.channel.send("Invalid roster")
-                    return
-            for key, value in team_rosters["Gryffindor"].items():
-                if value == None:
-                    await message.channel.send("Invalid roster")
-                    return
-            await message.channel.send("Match is ready to start!")
-            await start_match(message.channel, "Gryffindor", team)
+            return
         else:
             teamA = m[1]
             teamB = m[2]
@@ -896,9 +1047,6 @@ async def on_message(message):
                 return
             if teamB not in teams:
                 await message.channel.send(teamB + " not a valid team name")
-                return
-            if teamA == "Gryffindor" or teamB == "Gryffindor":
-                await message.channel.send("This doesn't make a whole lot of sense")
                 return
             for key, value in team_rosters[teamA].items():
                 if value == None:
@@ -909,20 +1057,23 @@ async def on_message(message):
                     await message.channel.send("Invalid roster for " + teamB)
                     return
             await message.channel.send("Match is ready to start!")
-            await start_match_headless(message.channel, teamA, teamB)
+            if teamA == "Gryffindor" or teamB == "Gryffindor":
+                await start_match(message.channel, teamA, teamB)
+            else:
+                await start_match_headless(message.channel, teamA, teamB)
     elif message.content.find("-start_practice ") != -1:
         print("Start practice")
     elif message.content.find("-add ") != -1:
-        args = message.content.split()
+        #currently, this code splits the name in half which is not good
         required_args = [" name", " position", " team", " captain"]
         for arg in required_args:
             if(message.content.find(arg) == -1):
                 await message.channel.send(arg + " is required")
                 return
-        await add_player(args[1:])
-        await message.channel.send("Successfully added " + str(args[1]))
+        await add_player(message.content)
+        await message.channel.send("Successfully added player")
 
-    elif message.content.find("-save ") != -1:
+    elif message.content.find("-save") != -1:
         await save(message.channel)
 
     elif message.content.find("-sub ") != -1: #similar in principle to sub but sub subs in a character who already is in the game
@@ -959,7 +1110,6 @@ async def on_message(message):
             return
         for key, value in teamData.items():
             if(teamData[key]["team"] == team and teamData[key]["position"] == pos):
-                print(teamData[key]["injured"])
                 if(teamData[key]["critically_injured"] == True):
                     await message.channel.send(key + " (critically injured)")
                 elif(teamData[key]["injured"] == True):
@@ -979,13 +1129,14 @@ async def on_message(message):
         if(len(m) != 2):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
+        raise NotImplementedError()
         await load_roster_from_file(m[1])
     elif message.content.find("-set_param") != -1:
         m = message.content.split()
         if(len(m) != 4):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
-        await set_param(m[1], m[2], m[3])
+        await set_param(message.channel, m[1], m[2], m[3])
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
 
