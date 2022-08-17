@@ -494,9 +494,9 @@ async def beater_turn(beater, channel, a, b):
                 response = "{b} has knocked {h} out of the game! {a} will have to substitute"
                 await channel.send(response.format(b=beater["name"], h=teamData[hit[1]]["name"], a=a))
                 # response = await generateNextText("crit") #it appears as though this was the problem
+        beater["xp"] -= 45
                 
     elif(roll > 1 and roll <= 3):
-        print("DETERMINE FOUL")
         min_roll = 12
         
         foul_player = -1
@@ -514,7 +514,6 @@ async def beater_turn(beater, channel, a, b):
                     min_roll = comparison_roll
                     foul_player = int
             foul = list(team_rosters[a].items())[foul_player]
-        print(foul)
         text = ""
         action = ""
         if("Chaser" in foul[0]):
@@ -558,6 +557,7 @@ async def beater_turn(beater, channel, a, b):
             if(channel != None):
                 await channel.send(beater["name"] + " hit " + str(teamData[hit[1]]["name"]) + " when they were they were already injured!")
                 await channel.send(str(teamData[hit[1]]["name"]) + " was knocked unconscious and cannot play")
+                beater["xp"] += 100
             teamData[hit[1]]["critically_injured"] = True
             if(channel != None):
                 await channel.send("Need to substitute for the position " + str(hit[0]))
@@ -927,6 +927,14 @@ async def displayRoster(channel, team):
     print(return_message)
     await channel.send(return_message)
 
+async def autogen_roster(args):
+    file_name = args[1]
+    roster = {}
+    positions = ["Chaser1" "Chaser2", "Chaser3", "Beater1", "Beater2", "Keeper", "Seeker"]
+    curent_player = 2
+    while(len(positions) > 0):
+        rn = random.randint(0, len(positions))
+    pass
 @client.event
 async def on_message(message):
     print("Message")
@@ -1129,7 +1137,6 @@ async def on_message(message):
         if(len(m) != 2):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
-        raise NotImplementedError()
         await load_roster_from_file(m[1])
     elif message.content.find("-set_param") != -1:
         m = message.content.split()
@@ -1137,6 +1144,12 @@ async def on_message(message):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
         await set_param(message.channel, m[1], m[2], m[3])
+    elif message.content.find("-autogen_roster") != -1: #useful for when we want to add a lot of players to an example file quickly
+        m = message.content.split()
+        if(len(m) != 8):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+            return
+        await autogen_roster(args)
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
 
