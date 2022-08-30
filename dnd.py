@@ -1,5 +1,6 @@
 from email import message_from_string
 import re
+from turtle import pos, position
 import discord
 from discord import team
 from discord.ext import commands
@@ -930,11 +931,23 @@ async def displayRoster(channel, team):
 async def autogen_roster(args):
     file_name = args[1]
     roster = {}
-    positions = ["Chaser1" "Chaser2", "Chaser3", "Beater1", "Beater2", "Keeper", "Seeker"]
-    curent_player = 2
+    positions = ["Chaser1", "Chaser2", "Chaser3", "Beater1", "Beater2", "Keeper", "Seeker"]
+    current_player = 2
     while(len(positions) > 0):
-        rn = random.randint(0, len(positions))
+        rn = random.randint(0, len(positions)-1)
+        print(rn)
+        print(positions[rn])
+        roster[positions[rn]] = args[current_player]
+        positions.pop(rn)
+        print("len(positions)", len(positions))
+        current_player += 1
+
     pass
+    print(roster)
+    with open(file_name, 'w', encoding='utf-8') as file:
+        json.dump(roster, file)
+    print("Saved successfully")
+
 @client.event
 async def on_message(message):
     print("Message")
@@ -1146,10 +1159,10 @@ async def on_message(message):
         await set_param(message.channel, m[1], m[2], m[3])
     elif message.content.find("-autogen_roster") != -1: #useful for when we want to add a lot of players to an example file quickly
         m = message.content.split()
-        if(len(m) != 8):
+        if(len(m) != 9):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
-        await autogen_roster(args)
+        await autogen_roster(m)
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
 
