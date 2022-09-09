@@ -542,7 +542,8 @@ async def beater_turn(beater, channel, a, b):
                 min_roll = comparison_roll
                 hit_player = int
         hit = list(team_rosters[b].items())[hit_player]
-        await channel.send(text.format(beater=beater["name"], opp_name=teamData[hit[1]]["name"], house=b, num=teamData[hit[1]]["jersey"]))
+        if(channel != None):
+            await channel.send(text.format(beater=beater["name"], opp_name=teamData[hit[1]]["name"], house=b, num=teamData[hit[1]]["jersey"]))
     elif(roll >= 8 or roll < 12):
         text = await generateNextBeaterText("minor")
         print(text)
@@ -850,6 +851,8 @@ async def add_player(message):
     params = params[1:]
     #do special processing of the string
     required_args = ["name", "position", "team", "captain"]
+    if params[0] in teamData:
+        return "Player already in file"
     teamData[params[0]] = {}
     for j in range(len(required_args)-1):
         l = len(required_args[j])
@@ -876,6 +879,7 @@ async def add_player(message):
     teamData[params[0]]["isBot"] = True
     #add defaults for other params too
     teams[teamData[params[0]]["team"]].append(teamData[params[0]])
+    return "Success"
 
 async def auto_populate(team_to_fill):
     if team_to_fill in team_list:
@@ -930,6 +934,9 @@ async def displayRoster(channel, team):
 
 async def autogen_roster(args):
     file_name = args[1]
+    for arg in args[2:]:
+        if arg not in teamData:
+            return -1
     roster = {}
     positions = ["Chaser1", "Chaser2", "Chaser3", "Beater1", "Beater2", "Keeper", "Seeker"]
     current_player = 2
@@ -1091,8 +1098,8 @@ async def on_message(message):
             if(message.content.find(arg) == -1):
                 await message.channel.send(arg + " is required")
                 return
-        await add_player(message.content)
-        await message.channel.send("Successfully added player")
+        result = await add_player(message.content)
+        await message.channel.send(result)
 
     elif message.content.find("-save") != -1:
         await save(message.channel)
@@ -1162,7 +1169,11 @@ async def on_message(message):
         if(len(m) != 9):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
-        await autogen_roster(m)
+        result = await autogen_roster(m)
+        if(result != -1):
+            await message.channel.send("Saved successfully")
+        else:
+            await message.channel.send("One or more of the players provided could not be recognized")
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
 
