@@ -955,6 +955,28 @@ async def autogen_roster(args):
         json.dump(roster, file)
     print("Saved successfully")
 
+async def start_practice():
+    pass
+
+async def gen_roster(args):
+    file_name = args[1]
+    for arg in args[2:]:
+        if arg not in teamData:
+            return -1
+    roster = {}
+    positions = ["Chaser1", "Chaser2", "Chaser3", "Beater1", "Beater2", "Keeper", "Seeker"]
+    for pos in positions:
+        roster[pos] = None
+    
+    for arg in args[2:]:
+        position = teamData[arg]["position"]
+        if position == "Chaser" or position == "Keeper":
+            pass
+        print(position)
+
+async def gen_practice_roster(args):
+    pass
+
 @client.event
 async def on_message(message):
     print("Message")
@@ -1091,6 +1113,7 @@ async def on_message(message):
                 await start_match_headless(message.channel, teamA, teamB)
     elif message.content.find("-start_practice ") != -1:
         print("Start practice")
+        await start_practice()
     elif message.content.find("-add ") != -1:
         #currently, this code splits the name in half which is not good
         required_args = [" name", " position", " team", " captain"]
@@ -1154,10 +1177,10 @@ async def on_message(message):
             await message.channel.send("No game in progress")
     elif message.content.find("-load_roster ") != -1:
         m = message.content.split()
-        if(len(m) != 2):
+        if(len(m) != 3):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
-        await load_roster_from_file(m[1])
+        roster = await load_roster_from_file(m[1])
     elif message.content.find("-set_param") != -1:
         m = message.content.split()
         if(len(m) != 4):
@@ -1174,6 +1197,23 @@ async def on_message(message):
             await message.channel.send("Saved successfully")
         else:
             await message.channel.send("One or more of the players provided could not be recognized")
+    elif message.content.find("-gen_roster") != -1: #used for creating a varsity roster
+        #functions in very much the same way as above, but with the positions being already defined
+        m = message.content.split()
+        if(len(m) != 9):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+            return
+        result = await gen_roster(m)
+    elif message.content.find("-gen_practice_roster") != -1:
+        m = message.content.split()
+        if(len(m) < 2 and len(m) > 5):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+        result = await gen_practice_roster(m)
+        pass
+    elif message.content.find("-load_practice_roster") != -1:
+        pass
+    elif message.content.find("-replace_roster") != -1:
+        pass
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
 
