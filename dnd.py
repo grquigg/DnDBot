@@ -674,15 +674,23 @@ async def run_round_headless(teamA, teamB):
         else:
             continue
 
-async def load_roster_from_file(file_name):
+async def load_roster_from_file(file_name, roster_name):
+    if roster_name not in temp_rosters:
+        temp_rosters[roster_name] = {}
+        temp_rosters[roster_name]["Beater1"] = ""
+        temp_rosters[roster_name]["Beater2"] = ""
+        temp_rosters[roster_name]["Chaser1"] = ""
+        temp_rosters[roster_name]["Chaser2"] = ""
+        temp_rosters[roster_name]["Chaser3"] = ""
+        temp_rosters[roster_name]["Keeper"] = ""
+        temp_rosters[roster_name]["Seeker"] = ""
     with open(file_name, "r", encoding="utf8") as file:
         for line in file:
             data = json.loads(line)
+            print(data)
     for key, value in data.items():
-        if key not in team_list:
-            return
         for position, player in value.items():
-            if position not in team_rosters[key]:
+            if position not in temp_rosters[roster_name]:
                 print("Invalid position name")
             else:
                 if player not in teamData:
@@ -691,7 +699,8 @@ async def load_roster_from_file(file_name):
                     if(teamData[player]["team"] != key):
                         print("Player not in team")
                     else:
-                        team_rosters[key][position] = player
+                        temp_rosters[roster_name][position] = player
+        print(temp_rosters[roster_name])
 
 
 @client.event
@@ -706,6 +715,7 @@ async def on_ready():
     global control_sequence
     global teams
     global team_rosters
+    global temp_rosters
     global teamA_score
     global teamB_score
     global team_list
@@ -715,6 +725,7 @@ async def on_ready():
     DEVELOPMENT_MODE = True
     teams = {}
     team_rosters = {}
+    temp_rosters = {}
     teamA_score = 0
     teamB_score = 0
     with open(default_path, "r", encoding="utf8") as file:
@@ -1180,7 +1191,7 @@ async def on_message(message):
         if(len(m) != 3):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
-        roster = await load_roster_from_file(m[1])
+        roster = await load_roster_from_file(m[1], m[2])
     elif message.content.find("-set_param") != -1:
         m = message.content.split()
         if(len(m) != 4):
