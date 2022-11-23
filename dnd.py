@@ -13,10 +13,9 @@ from discord import message
 from dotenv import load_dotenv
 random.seed(111)
 load_dotenv()
-intents = discord.Intents.default()
-intents.members = True
+intents = discord.Intents(members = True, messages = True, message_content=True)
 client = discord.Client(intents=intents)
-bots = commands.Bot(command_prefix='!')
+# bots = commands.Bot(command_prefix='!')
 
 class MatchState(Enum):
     TEAM_A_TURN = 1
@@ -27,7 +26,7 @@ class MatchState(Enum):
 default_path = "./examplefile.json"
 flavor_text_path = "./flavor_text.json"
 client_id = int(os.getenv("CLIENT_ID"))
-
+channel_id = 877296962150498364
 async def start_match_headless(channel, teamA, teamB):
     global gameStarted
     gameStarted = True
@@ -755,8 +754,8 @@ async def on_ready():
         teams[teamData[key]["team"]].append(key)
         if not (teamData[key]["isBot"]):
             print("Not a bot")
-        
-    for member in client.get_channel(client_id).members:
+    print(client)
+    for member in client.get_guild(834779618694791218).members:
         if(not member.bot):
             if(teamData[member.name]["captain"] == True):
                 role = discord.utils.get(member.guild.roles, name="Captain")
@@ -993,7 +992,8 @@ async def on_message(message):
     print("Message")
     global gameStarted
     if message.author.bot:
-        return;
+        return
+    print(message.content)
     if(gameStarted): #feed the input directly to an asynchronous method designed to handle input for when the game is actually started
         if(team_a and team_b):
             if(team_a != "Gryffindor" and team_b != "Gryffindor"):
@@ -1003,6 +1003,7 @@ async def on_message(message):
             global control_sequence
             control_sequence = True
             return
+    print(message)
     if(message.content.find("-set ") != -1): #valid command makes 4 arguments
     #-set -p [position_name] [player_name]
         generator = (entry for entry in message.author.roles if entry.name=="Admin")
@@ -1186,8 +1187,9 @@ async def on_message(message):
             await message.channel.send("Game stopped")
         else:
             await message.channel.send("No game in progress")
-    elif message.content.find("-load_roster ") != -1:
+    elif message.content.find("-load_roster") != -1:
         m = message.content.split()
+        print(m)
         if(len(m) != 3):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
