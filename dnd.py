@@ -984,16 +984,32 @@ async def gen_roster(args):
             pass
         print(position)
 
+async def list_temp_roster(channel):
+    global temp_rosters
+    for key, value in temp_rosters.items():
+        message = "Team " + key + "\n"
+        for k, v in value.items():
+            message += k + "\t" + v + "\n"
+        await channel.send(message)
 async def gen_practice_roster(args):
     pass
 
+async def set_team_roster(team, practice):
+    global temp_rosters
+    #double check that players are actually on the team
+    print(temp_rosters)
+    for key, value in temp_rosters.items():
+        for k, v in value.items():
+            if(v not in teams[team]):
+                return "{} not in {}".format(v, team)
+    team_rosters[team] = temp_rosters[practice]
+    return "Success"
 @client.event
 async def on_message(message):
     print("Message")
     global gameStarted
     if message.author.bot:
         return
-    print(message.content)
     if(gameStarted): #feed the input directly to an asynchronous method designed to handle input for when the game is actually started
         if(team_a and team_b):
             if(team_a != "Gryffindor" and team_b != "Gryffindor"):
@@ -1003,7 +1019,6 @@ async def on_message(message):
             global control_sequence
             control_sequence = True
             return
-    print(message)
     if(message.content.find("-set ") != -1): #valid command makes 4 arguments
     #-set -p [position_name] [player_name]
         generator = (entry for entry in message.author.roles if entry.name=="Admin")
@@ -1099,7 +1114,7 @@ async def on_message(message):
         if(gameStarted):
             return
         if(len(m) != 3):
-            message.channel.send("Invalid number of arguments")
+            await message.channel.send("Invalid number of arguments")
             return
         else:
             teamA = m[1]
@@ -1223,9 +1238,22 @@ async def on_message(message):
             await message.channel.send("Couldn't recognize that command. Try -help")
         result = await gen_practice_roster(m)
         pass
+    elif message.content.find("-list_roster") != -1:
+        await list_temp_roster(message.channel)
+        pass
     elif message.content.find("-load_practice_roster") != -1:
         pass
     elif message.content.find("-replace_roster") != -1:
+        pass
+    elif(message.content.find("-set_roster") != -1):
+        m = message.content.split()
+        #first arg - team name
+        #second arg - roster name
+        if(len(m) != 3):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+            return
+        response = await set_team_roster(m[1], m[2])
+        await message.channel.send(response)
         pass
     else:
         await message.channel.send("Couldn't recognize that command. Try -help")
