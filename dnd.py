@@ -945,6 +945,7 @@ async def displayRoster(channel, team):
 async def autogen_roster(args):
     file_name = args[1]
     for arg in args[2:]:
+        print(arg)
         if arg not in teamData:
             return -1
     roster = {}
@@ -992,6 +993,9 @@ async def list_temp_roster(channel):
             message += k + "\t" + v + "\n"
         await channel.send(message)
 async def gen_practice_roster(args):
+    pass
+
+async def get_players(team_name):
     pass
 
 async def set_team_roster(team, practice):
@@ -1253,6 +1257,15 @@ async def on_message(message):
             await message.channel.send("Couldn't recognize that command. Try -help")
             return
         response = await set_team_roster(m[1], m[2])
+        await message.channel.send(response)
+        pass
+    elif(message.content.find("-list_players") != -1):
+        m = message.content.split()
+        #first arg - team name
+        if(len(m) != 2):
+            await message.channel.send("Couldn't recognize that command. Try -help")
+            return
+        response = await get_players(m[1])
         await message.channel.send(response)
         pass
     else:
