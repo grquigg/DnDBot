@@ -1,21 +1,15 @@
-from email import message_from_string
-import re
-from turtle import pos, position
 import discord
-from discord import team
-from discord.ext import commands
 import os
 import json
 from enum import Enum
 import random
 import asyncio
-from discord import message
 from dotenv import load_dotenv
+
 random.seed(111)
 load_dotenv()
 intents = discord.Intents(members = True, messages = True, message_content=True)
 client = discord.Client(intents=intents)
-# bots = commands.Bot(command_prefix='!')
 
 class MatchState(Enum):
     TEAM_A_TURN = 1
@@ -189,25 +183,6 @@ async def start_match(channel, teamA, teamB):
     gameStarted = False
     await clean_up()
 
-async def generateNextMove(moveType):
-    index = random.randint(0, len(flavorText["moves"][moveType])-1)
-    return flavorText["moves"][moveType][index]
-
-async def generateNextText(textType):
-    index = random.randint(0, len(flavorText["hits"][textType])-1)
-    return flavorText["hits"][textType][index]
-
-async def generateNextMissText(textType):
-    index = random.randint(0, len(flavorText["misses"][textType])-1)
-    return flavorText["misses"][textType][index]
-
-async def generateNextBeaterText(textType, position="beater"):
-    if(textType == "fouls"):
-        index = random.randint(0, len(flavorText["fouls"][position])-1)
-        return flavorText[textType][position][index]
-    index = random.randint(0, len(flavorText[textType])-1)
-    return flavorText[textType][index]
-
 async def generateNextActionText():
     index = random.randint(0, len(flavorText["fouls"]["moves"]))
     return flavorText["fouls"]["moves"][index]
@@ -337,32 +312,6 @@ async def run_round(a, b, channel, init=False):
     score = "{teamA} scores {success} goals and {teamB} blocks {miss} goals. The total score thus far is {teamA}: {scoreA}, {teamB}: {scoreB}"
     await channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = scores[team_a], scoreB = scores[team_b]))
 
-async def check_for_level_up(player, channel):
-    if(player["xp"] > 100 and player["rank"] < 1):
-        if(channel != None):
-            await channel.send(str(player["name"]) + " has leveled up to Rank 1!")
-        player["rank"] = 1
-    elif(player["xp"] > 250 and player["rank"] < 2):
-        if(channel != None):
-            await channel.send(str(player["name"]) + " has leveled up to Rank 2!")
-        player["rank"] = 2
-    elif(player["xp"] > 450 and player["rank"] < 3):
-        if(channel != None):
-            await channel.send(str(player["name"]) + " has leveled up to Rank 3!")
-        player["rank"] = 3
-    elif(player["xp"] > 700 and player["rank"] < 4):
-        if(channel != None):
-            await channel.send(str(player["name"]) + " has leveled up to Rank 4!")
-        player["rank"] = 4
-    elif(player["xp"] > 1000 and player["rank"] < 5):
-        if(channel != None):
-            await channel.send(str(player["name"]) + " has leveled up to Rank 5!")
-        player["rank"] = 5
-    elif(player["xp"] > 1400 and player["rank"] < 6):
-        if(channel != None):
-            await channel.send(str(player["name"]) + " has leveled up to Rank 6!")
-        player["rank"] = 6
-
 #TO-DO: Have the game be more interactive. Choose who the beater goes after
 
 async def search_for_sub(team, position):
@@ -468,134 +417,6 @@ async def reroll(channel):
         await channel.send("Type 'continue' to continue")
     else:
         await channel.send("No more rerolls left")
-
-async def beater_turn(beater, channel, a, b):
-    response = await generateNextBeaterText("crit")
-    roll = random.randint(1, 12) + beater["rank"]
-    if (beater["injured"]):
-        roll =- 1
-    #1 should be crit fail, hit own team member
-    #2 or 3 foul
-    print("Roll: " + str(roll))
-    #initial roll is 7
-    if(roll == 1): #they are going to accidentally hit their own teammate
-        min_roll = 12
-        hit_player = -1
-        for int in range(6):
-            comparison_roll = random.randint(1, 12)
-            if(min_roll > comparison_roll):
-                min_roll = comparison_roll
-                hit_player = int
-        hit = list(team_rosters[a].items())[hit_player]
-        if(channel != None):
-            await channel.send("{b} has mistakenly directed the bludger at their own teammate, {h}".format(b=beater["name"], h=teamData[hit[1]]["name"]))
-            if(teamData[hit[1]]["injured"] == True):
-                print("Player was already injured")
-                response = "{b} has knocked {h} out of the game! {a} will have to substitute"
-                await channel.send(response.format(b=beater["name"], h=teamData[hit[1]]["name"], a=a))
-                # response = await generateNextText("crit") #it appears as though this was the problem
-        beater["xp"] -= 45
-                
-    elif(roll > 1 and roll <= 3):
-        min_roll = 12
-        
-        foul_player = -1
-        for int in range(6):
-            comparison_roll = random.randint(1, 12)
-            if(min_roll > comparison_roll):
-                min_roll = comparison_roll
-                foul_player = int
-        foul = list(team_rosters[a].items())[foul_player]
-        while("Seeker" in foul[0]): #seekers cannot commit fouls
-            foul_player = -1
-            for int in range(6):
-                comparison_roll = random.randint(1, 12)
-                if(min_roll > comparison_roll):
-                    min_roll = comparison_roll
-                    foul_player = int
-            foul = list(team_rosters[a].items())[foul_player]
-        text = ""
-        action = ""
-        if("Chaser" in foul[0]):
-            text = await generateNextBeaterText("fouls", position="chaser")
-            action = await generateNextBeaterText("fouls", position="moves")
-        elif("Keeper" in foul[0]):
-            text = await generateNextBeaterText("fouls", position="keeper")
-        elif("Beater" in foul[0]):
-            text = await generateNextBeaterText("fouls")
-            action = await generateNextBeaterText("fouls", position="moves")
-        print(text)
-        await channel.send(text.format(name=foul[1], house=a, action=action, number=teamData[foul[1]]["jersey"]))
-        scores[a] -= 10
-        # raise NotImplementedError("Need to send text to the channel based on all of the previous prompts")
-        # raise NotImplementedError("fix local variable 'action' referenced before assignment error")
-    elif(roll>= 4 and roll < 8):
-        #generate text
-        text = await generateNextBeaterText("miss")
-        print(text)
-        min_roll = random.randint(1, 12)
-        hit_player = 0
-        for int in range(6):
-            comparison_roll = random.randint(1, 12)
-            if(min_roll > comparison_roll):
-                min_roll = comparison_roll
-                hit_player = int
-        hit = list(team_rosters[b].items())[hit_player]
-        if(channel != None):
-            await channel.send(text.format(beater=beater["name"], opp_name=teamData[hit[1]]["name"], house=b, num=teamData[hit[1]]["jersey"]))
-    elif(roll >= 8 or roll < 12):
-        text = await generateNextBeaterText("minor")
-        print(text)
-        min_roll = random.randint(1, 12)
-        hit_player = 0
-        for int in range(6):
-            comparison_roll = random.randint(1, 12)
-            if(min_roll > comparison_roll):
-                min_roll = comparison_roll
-                hit_player = int
-        hit = list(team_rosters[b].items())[hit_player]
-        if(teamData[hit[1]]["injured"] == True):
-            if(channel != None):
-                await channel.send(beater["name"] + " hit " + str(teamData[hit[1]]["name"]) + " when they were they were already injured!")
-                await channel.send(str(teamData[hit[1]]["name"]) + " was knocked unconscious and cannot play")
-                beater["xp"] += 100
-            teamData[hit[1]]["critically_injured"] = True
-            if(channel != None):
-                await channel.send("Need to substitute for the position " + str(hit[0]))
-            team_rosters[b][hit[0]] = None
-            while(team_rosters[b][hit[0]] == None):
-                if(channel == None or b != "Gryffindor"):
-                    print("Call search for sub")
-                    await search_for_sub(b, hit)
-                await asyncio.sleep(1)
-        else:
-            teamData[hit[1]]["injured"] = True
-            if(channel != None):
-                await channel.send(text.format(beater=beater["name"], opp_name=teamData[hit[1]]["name"], opp_pos=teamData[hit[1]]["position"]))
-                await channel.send("{opp_name} is now injured and will roll with disadvantage".format(opp_name=teamData[hit[1]]["name"]))
-
-        beater["xp"] += 50
-        await check_for_level_up(beater, channel)
-    elif(roll >= 12):
-        min_roll = random.randint(1, 12)
-        hit_player = 0
-        for int in range(6):
-            comparison_roll = random.randint(1, 12)
-            if(min_roll > comparison_roll):
-                min_roll = comparison_roll
-                hit_player = int
-        hit = list(team_rosters[b].items())[hit_player]
-        if(channel != None):
-            await channel.send(beater["name"] + " hit " + str(teamData[hit[1]]["name"]) + " and landed a critical hit!")
-        beater["xp"] += 100
-        await check_for_level_up(beater, channel)
-        team_rosters[b][hit[0]] = None
-        if (channel != None):
-            await channel.send("Need to substitute for the position " + str(hit[0]))
-        while(team_rosters[b][hit[0]] == None):
-            if(channel != None or b != "Gryffindor"):
-                await search_for_sub(b, hit)
-            await asyncio.sleep(1)
 
 async def clean_up():
     global teamData
