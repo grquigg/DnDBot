@@ -26,22 +26,29 @@ async def check_for_level_up(player, channel):
             await channel.send(str(player["name"]) + " has leveled up to Rank 6!")
         player["rank"] = 6
 
-async def generateNextText(textType, flavorText):
-    index = random.randint(0, len(flavorText["hits"][textType])-1)
-    return flavorText["hits"][textType][index]
+class FlavorTextGenerator():
+    def __init__(self, flavorText=None):
+        self.flavorText = flavorText
 
-async def generateNextMissText(textType):
-    index = random.randint(0, len(flavorText["misses"][textType])-1)
-    return flavorText["misses"][textType][index]
+    async def generateNextText(self, textType):
+        index = random.randint(0, len(self.flavorText["hits"][textType])-1)
+        return self.flavorText["hits"][textType][index]
 
-async def generateNextBeaterText(textType, position="beater"):
-    if(textType == "fouls"):
-        index = random.randint(0, len(flavorText["fouls"][position])-1)
-        return flavorText[textType][position][index]
-    index = random.randint(0, len(flavorText[textType])-1)
-    return flavorText[textType][index]
+    async def generateNextMissText(self, textType):
+        index = random.randint(0, len(self.flavorText["misses"][textType])-1)
+        return self.flavorText["misses"][textType][index]
 
+    async def generateNextBeaterText(self, textType, position="beater"):
+        if(textType == "fouls"):
+            index = random.randint(0, len(self.flavorText["fouls"][position])-1)
+            return self.flavorText[textType][position][index]
+        index = random.randint(0, len(self.flavorText[textType])-1)
+        return self.flavorText[textType][index]
 
-async def generateNextMove(moveType):
-    index = random.randint(0, len(flavorText["moves"][moveType])-1)
-    return flavorText["moves"][moveType][index]
+    async def generateNextMove(self, moveType):
+        index = random.randint(0, len(self.flavorText["moves"][moveType])-1)
+        return self.flavorText["moves"][moveType][index]
+    
+    async def generateNextActionText(self):
+        index = random.randint(0, len(self.flavorText["fouls"]["moves"]))
+        return self.flavorText["fouls"]["moves"][index]

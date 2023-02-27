@@ -1,6 +1,6 @@
 import random
 import asyncio
-from .utils import check_for_level_up, generateNextBeaterText
+from utils import check_for_level_up, FlavorTextGenerator
 
 async def beater_turn(beater, channel, a, b):
     response = await generateNextBeaterText("crit")
@@ -323,7 +323,8 @@ async def run_round(a, b, channel, team_rosters, teamData, init=False):
     score = "{teamA} scores {success} goals and {teamB} blocks {miss} goals. The total score thus far is {teamA}: {scoreA}, {teamB}: {scoreB}"
     await channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = scores[team_a], scoreB = scores[team_b]))
 
-async def start_match(channel, teamA, teamB):
+async def start_match(channel, teamA, teamB, team_rosters, teamData, flavorText):
+    gen = FlavorTextGenerator(flavorText)
     A = random.randint(1, 20)
     B = random.randint(1, 20)
     num_rounds = random.randint(1, 12)
@@ -341,7 +342,7 @@ async def start_match(channel, teamA, teamB):
         await channel.send(teamB + " will be on the offensive first")
         first_team = teamB
         second_team = teamA
-    await run_round(first_team, second_team, channel, init=True)
+    await run_round(first_team, second_team, channel, team_rosters, teamData, init=True)
     await channel.send("Type 'continue' to continue")
     while(control_sequence == False):
         await asyncio.sleep(1)
