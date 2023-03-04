@@ -99,10 +99,6 @@ async def save(channel):
             json.dump(teamData, file)
         await channel.send("Saved successfully")
 
-async def generateNextActionText():
-    index = random.randint(0, len(flavorText["fouls"]["moves"]))
-    return flavorText["fouls"]["moves"][index]
-
 
 #TO-DO: Have the game be more interactive. Choose who the beater goes after
 
@@ -753,7 +749,7 @@ async def on_message(message):
             await message.channel.send("Match is ready to start!")
             gameStarted = True
             if teamA == "Gryffindor" or teamB == "Gryffindor":
-                await start_match(message.channel, teamA, teamB, team_rosters, teamData)
+                await start_match(message.channel, teamA, teamB, team_rosters, teamData, flavorText)
             else:
                 await start_match_headless(message.channel, teamA, teamB)
     elif message.content.find("-start_practice ") != -1:

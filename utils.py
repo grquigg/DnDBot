@@ -27,7 +27,7 @@ async def check_for_level_up(player, channel):
         player["rank"] = 6
 
 class FlavorTextGenerator():
-    def __init__(self, flavorText=None):
+    def __init__(self, flavorText):
         self.flavorText = flavorText
 
     async def generateNextText(self, textType):
