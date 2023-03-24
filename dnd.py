@@ -5,7 +5,7 @@ from enum import Enum
 import random
 import asyncio
 from dotenv import load_dotenv
-from matches import start_match
+from matches import Match
 random.seed(111)
 load_dotenv()
 intents = discord.Intents(members = True, messages = True, message_content=True)
@@ -319,7 +319,7 @@ async def on_ready():
     global flavorText
     global gameType
     global gameStarted
-    global matchState
+    global currentMatch
     global control_sequence
     global teams
     global team_rosters
@@ -331,6 +331,7 @@ async def on_ready():
     team_list = ["Gryffindor", "Gryffindor2", "Ravenclaw", "Ravenclaw2", "Slytherin", "Slytherin2", "Hufflepuff", "Hufflepuff2"]
     gameStarted = False
     DEVELOPMENT_MODE = True
+    currentMatch = None
     teams = {}
     team_rosters = {}
     temp_rosters = {}
@@ -620,18 +621,15 @@ async def set_team_roster(team, practice):
 @client.event
 async def on_message(message):
     print("Message")
-    global gameStarted
     if message.author.bot:
         return
-    if(gameStarted): #feed the input directly to an asynchronous method designed to handle input for when the game is actually started
-        if(team_a and team_b):
-            if(team_a != "Gryffindor" and team_b != "Gryffindor"):
-                if(message.content.find("-stop") != 1):
-                    await message.channel.send("Cannot send messages while a game is going on")
+    global currentMatch
+    #feed the input directly to an asynchronous method designed to handle input for when the game is actually started
+    if(currentMatch != None and not await currentMatch.isHeadless()):
+        if(message.content.find("-stop") != 1):
+            await message.channel.send("Cannot send messages while a game is going on")
         if(message.content.find('continue') != -1):
-            global control_sequence
-            control_sequence = True
-            return
+            await currentMatch.unpause()
     if(message.content.find("-set ") != -1): #valid command makes 4 arguments
     #-set -p [position_name] [player_name]
         generator = (entry for entry in message.author.roles if entry.name=="Admin")
@@ -710,7 +708,7 @@ async def on_message(message):
         await displayRoster(message.channel, team)
 
     elif message.content.find("-autopop ") != -1: #autopopulate command takes one argument
-        if(gameStarted):
+        if(currentMatch != None):
             return
         m = message.content.split()
         if(len(m) != 2):
@@ -724,7 +722,7 @@ async def on_message(message):
     elif message.content.find("-start ") != -1: #have start take one to two arguments
         #if there is one argument in the entry, assume that the game is between the team provided and Gryffindor
         m = message.content.split()
-        if(gameStarted):
+        if(currentMatch != None):
             return
         if(len(m) != 3):
             await message.channel.send("Invalid number of arguments")
@@ -749,7 +747,8 @@ async def on_message(message):
             await message.channel.send("Match is ready to start!")
             gameStarted = True
             if teamA == "Gryffindor" or teamB == "Gryffindor":
-                await start_match(message.channel, teamA, teamB, team_rosters, teamData, flavorText)
+                currentMatch = Match(teamA, teamB, team_rosters, message.channel, flavorText, teamData)
+                await currentMatch.start_match()
             else:
                 await start_match_headless(message.channel, teamA, teamB)
     elif message.content.find("-start_practice ") != -1:

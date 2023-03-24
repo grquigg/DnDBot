@@ -3,7 +3,7 @@ import asyncio
 from utils import check_for_level_up, FlavorTextGenerator
 
 class Match():
-    def __init__(self, teamA, teamB, team_rosters, channel, flavorText, teamData):
+    def __init__(self, teamA, teamB, team_rosters, channel, flavorText, teamData, headless=False):
         self.teamA = teamA
         self.teamB = teamB
         self.channel = channel
@@ -11,6 +11,9 @@ class Match():
         self.teamData = teamData
         self.team_rosters = team_rosters
         self.gen = FlavorTextGenerator(self.gen)
+        self.headless = headless
+        self.paused = False
+        self.scores = {teamA: 0, teamB: 0}
 
     async def beater_turn(self, beater, channel, a, b):
         response = await self.gen.generateNextBeaterText("crit")
@@ -114,8 +117,8 @@ class Match():
             else:
                 self.teamData[hit[1]]["injured"] = True
                 if(channel != None):
-                    await channel.send(text.format(beater=beater["name"], opp_name=self.teamData[hit[1]]["name"], opp_pos=teamData[hit[1]]["position"]))
-                    await channel.send("{opp_name} is now injured and will roll with disadvantage".format(opp_name=teamData[hit[1]]["name"]))
+                    await channel.send(text.format(beater=beater["name"], opp_name=self.teamData[hit[1]]["name"], opp_pos=self.teamData[hit[1]]["position"]))
+                    await channel.send("{opp_name} is now injured and will roll with disadvantage".format(opp_name=self.teamData[hit[1]]["name"]))
 
             beater["xp"] += 50
             await check_for_level_up(beater, channel)
@@ -208,6 +211,12 @@ class Match():
             else:
                 continue
 
+    async def isHeadless(self):
+        return self.headless
+    
+    async def unpause(self):
+        self.paused = not self.paused
+
     async def run_round(self, a, b, init=False):
         # global control_sequence
         # global team_A_rolls
@@ -298,7 +307,7 @@ class Match():
                     string = "{q} {dif} with a {counter}, passing the Quaffle to {r} who scores a goal with a {offensive}"
                     await self.channel.send(string.format(q=self.teamData[quaffle_possession]["name"], dif=different, counter=counter, r=self.teamData[team_A_rolls[x][0]]["name"], offensive=offensiveMove))
                 await check_for_level_up(self.teamData[team_A_rolls[x][0]], self.channel)
-                scores[team_a] += 30
+                self.scores[team_a] += 30
                 successes += 1
                 quaffle_possession = team_A_rolls[x][0]
             elif(team_A_rolls[x][1] < team_B_rolls[x]):
@@ -319,9 +328,9 @@ class Match():
             else:
                 continue
             await self.channel.send("Type 'continue' to continue")
-            while(control_sequence == False):
+            self.paused = True
+            while(self.paused):
                 await asyncio.sleep(1)
-            control_sequence = False
         finalMove = await self.gen.generateNextMissText("final")
         flavor = await self.gen.generateNextMissText("sf")
         string = "{keeper} catches {quaffle}'s attack, {final} the {off} {f}"
