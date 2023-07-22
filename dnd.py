@@ -3,7 +3,6 @@ import os
 import json
 from enum import Enum
 import random
-import asyncio
 from dotenv import load_dotenv
 from matches import Match
 random.seed(111)
@@ -620,16 +619,29 @@ async def set_team_roster(team, practice):
     return "Success"
 @client.event
 async def on_message(message):
-    print("Message")
-    if message.author.bot:
-        return
     global currentMatch
+    print(currentMatch)
+    if(currentMatch != None):
+        print(currentMatch.isHeadless())
+    if message.author.bot:
+        print("This should be called")
+        return
     #feed the input directly to an asynchronous method designed to handle input for when the game is actually started
-    if(currentMatch != None and not await currentMatch.isHeadless()):
-        if(message.content.find("-stop") != 1):
-            await message.channel.send("Cannot send messages while a game is going on")
-        if(message.content.find('continue') != -1):
+    if(currentMatch != None and not currentMatch.isHeadless()):
+        print("Answer")
+        # print(message.content.find("-stop "))
+        # print(message.content.find("-stop ") != -1)
+        # if(message.content.find("-stop ") != 1):
+        #     print(type(message.content))
+        #     print("Don't call this")
+        #     await message.channel.send("Cannot send messages while a game is going on")
+        print(message.content)
+        print(message.content.find("continue") != -1)
+        print("continue" in message.content)
+        if message.content.find("continue") != -1:
+            print("What")
             await currentMatch.unpause()
+            return
     if(message.content.find("-set ") != -1): #valid command makes 4 arguments
     #-set -p [position_name] [player_name]
         generator = (entry for entry in message.author.roles if entry.name=="Admin")
@@ -689,10 +701,10 @@ async def on_message(message):
             return
         param = m[1]
         default_value = m[2]
-        type = m[3]
-        if(type == "boolean"):
+        typeVar = m[3]
+        if(typeVar == "boolean"):
             default_value = eval(default_value)
-        elif(type == "int"):
+        elif(typeVar == "int"):
             default_value = int(default_value)
         await write_params(param, default_value, message.channel)
 

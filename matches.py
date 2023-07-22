@@ -211,10 +211,11 @@ class Match():
             else:
                 continue
 
-    async def isHeadless(self):
+    def isHeadless(self):
         return self.headless
     
     async def unpause(self):
+        print("Unpause")
         self.paused = not self.paused
 
     async def run_round(self, a, b, init=False):
@@ -339,6 +340,7 @@ class Match():
         await self.channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = scores[team_a], scoreB = scores[team_b]))
 
     async def start_match(self):
+        print("Start match")
         A = random.randint(1, 20)
         B = random.randint(1, 20)
         num_rounds = random.randint(1, 12)
@@ -358,21 +360,21 @@ class Match():
             second_team = self.teamA
         await self.run_round(first_team, second_team, init=True)
         await self.channel.send("Type 'continue' to continue")
-        while(control_sequence == False):
+        while(self.paused):
             await asyncio.sleep(1)
-        await channel.send("Possession has turned over to " + str(second_team))
-        await run_round(second_team, first_team, channel)
-        await channel.send("Type 'continue' to continue")
-        while(control_sequence == False):
+        await self.channel.send("Possession has turned over to " + str(second_team))
+        await self.run_round(second_team, first_team)
+        await self.channel.send("Type 'continue' to continue")
+        while(self.paused):
             await asyncio.sleep(1)
         for i in range(1, 1):
-            await channel.send("The {house} team now has control of the Quaffle".format(house=first_team))
-            await run_round(first_team, second_team, channel)
-            await channel.send("Possession has turned over to {house}".format(house=second_team))
-            await channel.send("Type 'continue' to continue")
-            while(control_sequence == False):
+            await self.channel.send("The {house} team now has control of the Quaffle".format(house=first_team))
+            await self.run_round(first_team, second_team)
+            await self.channel.send("Possession has turned over to {house}".format(house=second_team))
+            await self.channel.send("Type 'continue' to continue")
+            while(self.paused):
                 await asyncio.sleep(1)
-            await run_round(second_team, first_team, channel)
+            await self.run_round(second_team, first_team)
         teamA_rolls = 0
         teamB_rolls = 0 
         for j in range(3):
