@@ -143,8 +143,101 @@ class Match():
                     await search_for_sub(b, hit)
                 await asyncio.sleep(1)
 
+    async def reroll(self, channel, index_i):
+        global team_rerolls
+        global score
+        if(team_rerolls > 0):
+            player = team_A_rolls[index_i][0]
+            rerollA = random.randint(1, 12) + self.teamData[player]["rank"]
+            if(self.teamData[player]["injured"]):
+                rerollA -= 1
+            rerollB = random.randint(1, 12) + self.teamData[self.team_rosters[self.team_b]["Keeper"]]["rank"]
+            if(self.teamData[self.team_rosters[self.team_b]["Keeper"]]):
+                rerollB -= 1
+            team_A_rolls[index_i] = (player, rerollA + team_A_rolls[index_i][1])
+            team_B_rolls[index_i] = team_B_rolls[index_i] + rerollB
+            if (team_A_rolls[index_i][1] > team_B_rolls[index_i]):
+                self.teamData[team_A_rolls[index_i][0]]["xp"] += 25
+                await channel.send(self.teamData[team_A_rolls[index_i][0]]["name"] + " has scored a goal")
+                await check_for_level_up(self.teamData[team_A_rolls[index_i][0]], channel)
+                scores[team_a] += 30
+            elif(team_A_rolls[index_i][1] < team_B_rolls[index_i]):
+                if(team_B_rolls[index_i] - team_A_rolls[index_i][1] <= 2):
+                    await channel.send(self.teamData[team_A_rolls[index_i][0]]["name"] + " almost managed to score a goal but " + teamData[team_rosters[team_b]["Keeper"]]["name"] + " blocked it at the last second!")
+                else:
+                    await channel.send(self.teamData[self.team_rosters[team_b]["Keeper"]]["name"] + " has blocked " + teamData[team_A_rolls[index_i][0]]["name"] + " from scoring")
+                self.teamData[team_A_rolls[index_i][0]]["xp"] += 5
+                keeper = self.team_rosters[self.team_b]["Keeper"]
+                self.teamData[keeper]["xp"] += 10
+                await check_for_level_up(self.teamData[team_A_rolls[index_i][0]], channel)
+                await check_for_level_up(self.teamData[keeper], channel)
+            team_rerolls -= 1
+            await channel.send(str(team_rerolls) + " rerolls left")
+            await channel.send("Type 'continue' to continue")
+        else:
+            await channel.send("No more rerolls left")
 
-    async def run_round_headless(teamA, teamB, team_rosters, teamData):
+    async def start_match_headless(self, channel, teamA, teamB):
+        global gameStarted
+        gameStarted = True
+        global num_rounds
+        global teamA_score
+        global teamB_score
+        global scores
+        scores = {}
+        scores[teamA] = 0
+        scores[teamB] = 0
+        A = random.randint(1, 20)
+        B = random.randint(1, 20)
+        num_rounds = 1
+        first_team = ""
+        first_team = ""
+        second_team = ""
+        coin = random.randint(0, 1)
+        if(coin == 0):
+            first_team = teamA
+            second_team = teamB
+        else:
+            first_team = teamB
+            second_team = teamA
+        for i in range(num_rounds):
+            await self.run_round_headless(first_team, second_team)
+            await self.run_round_headless(second_team, first_team)
+        teamA_rolls = 0
+        teamB_rolls = 0 
+        for j in range(3):
+            teamA_rolls += random.randint(1, 6)
+            teamB_rolls += random.randint(1, 6)
+        teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
+        teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
+
+        if(teamData[team_rosters[first_team]["Seeker"]]["injured"]):
+            teamA_rolls -= 1
+        if(teamData[team_rosters[second_team]["Seeker"]]["injured"]):
+            teamB_rolls -= 1
+
+        teamData[team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
+        teamData[team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
+        
+        if(teamA_rolls > teamB_rolls):
+            scores[teamA] += 150
+            seeker = teamData[team_rosters[first_team]["Seeker"]]["name"]
+            teamData[team_rosters[first_team]["Seeker"]]["xp"] += 150
+        elif (teamB_rolls > teamA_rolls):
+            scores[teamB] += 150
+            seeker = teamData[team_rosters[second_team]["Seeker"]]["name"]
+            teamData[team_rosters[second_team]["Seeker"]]["xp"] += 150
+        if(scores[teamA] > scores[teamB]):
+            await channel.send(first_team + " wins!")
+        elif(scores[teamB] > scores[teamA]):
+            await channel.send(second_team + " wins!")
+        else:
+            await channel.send("The score is a tie, so " + second_team + " wins!")
+        await channel.send("Score is " + str(first_team) + ": " + str(scores[teamA]) + ", " + str(second_team) + ": " + str(scores[teamB]))
+        gameStarted = False
+        await clean_up()
+
+    async def run_round_headless(self, teamA, teamB, team_rosters, teamData):
         global team_A_rolls
         global team_B_rolls
         team_a = teamA
@@ -195,7 +288,7 @@ class Match():
 
             if(beater_rolls[1] == x):
                 beater = teamData[team_rosters[team_a]["Beater2"]]
-                await beater_turn(beater, None, team_a, team_b)
+                await self.beater_turn(beater, None, team_a, team_b)
 
             if (team_A_rolls[x][1] > team_B_rolls[x]):
 
@@ -337,7 +430,7 @@ class Match():
         string = "{keeper} catches {quaffle}'s attack, {final} the {off} {f}"
         await self.channel.send(string.format(keeper = self.teamData[self.team_rosters[b]["Keeper"]]["name"], quaffle = self.teamData[quaffle_possession]["name"], final=finalMove, off=a, f=flavor))
         score = "{teamA} scores {success} goals and {teamB} blocks {miss} goals. The total score thus far is {teamA}: {scoreA}, {teamB}: {scoreB}"
-        await self.channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = scores[team_a], scoreB = scores[team_b]))
+        await self.channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = self.scores[team_a], scoreB = self.scores[team_b]))
 
     async def start_match(self):
         print("Start match")
@@ -380,42 +473,42 @@ class Match():
         for j in range(3):
             teamA_rolls += random.randint(1, 6)
             teamB_rolls += random.randint(1, 6)
-        teamA_rolls += teamData[team_rosters[first_team]["Seeker"]]["rank"]
-        teamB_rolls += teamData[team_rosters[second_team]["Seeker"]]["rank"]
+        teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
+        teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
         while (teamA_rolls == teamB_rolls):
             for j in range(3):
                 teamA_rolls += random.randint(1, 6)
                 teamB_rolls += random.randint(1, 6)
-            teamA_rolls += teamData[team_rosters[first_team]["Seeker"]]["rank"]
-            teamB_rolls += teamData[team_rosters[second_team]["Seeker"]]["rank"]
+            teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
+            teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
         
-        if(teamData[team_rosters[first_team]["Seeker"]]["injured"]):
+        if(self.teamData[self.team_rosters[first_team]["Seeker"]]["injured"]):
             teamA_rolls -= 1
-        if(teamData[team_rosters[second_team]["Seeker"]]["injured"]):
+        if(self.teamData[self.team_rosters[second_team]["Seeker"]]["injured"]):
             teamB_rolls -= 1
 
-        teamData[team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
-        teamData[team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
+        self.teamData[self.team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
+        self.teamData[self.team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
         if(teamA_rolls > teamB_rolls):
-            scores[teamA] += 150
-            seeker = teamData[team_rosters[teamA]["Seeker"]]
+            scores[self.teamA] += 150
+            seeker = self.teamData[self.team_rosters[self.teamA]["Seeker"]]
         else:
-            scores[teamB] += 150
-            seeker = teamData[team_rosters[teamB]["Seeker"]]
+            scores[self.teamB] += 150
+            seeker = self.teamData[self.team_rosters[self.teamB]["Seeker"]]
 
         print(seeker)
         seeker["xp"] += 150
-        await channel.send("{sk} has caught the Snitch! Ending the game after {r} rounds!".format(sk=seeker["name"], r=num_rounds))
-        await check_for_level_up(teamData[team_rosters[first_team]["Seeker"]], channel)
-        await check_for_level_up(teamData[team_rosters[second_team]["Seeker"]], channel)
+        await self.channel.send("{sk} has caught the Snitch! Ending the game after {r} rounds!".format(sk=seeker["name"], r=num_rounds))
+        await check_for_level_up(self.teamData[self.team_rosters[first_team]["Seeker"]], self.channel)
+        await check_for_level_up(self.teamData[self.team_rosters[second_team]["Seeker"]], self.channel)
         final_score = "The match has officially ended. {a} has scored {a_score} points. {b} has scored {b_score} points. "
-        if(scores[teamA] > scores[teamB]):
+        if(scores[self.teamA] > scores[self.teamB]):
             final_score += "{a} wins the match!"
-        elif(scores[teamB] > scores[teamA]):
+        elif(scores[self.teamB] > scores[self.teamA]):
             final_score += "{b} wins the match!"
         else:
-            await channel.send("The score is a tie, so " + second_team + " wins!")
+            await self.channel.send("The score is a tie, so " + second_team + " wins!")
         #need to verify that this actually prints out what it's supposed to
-        await channel.send(final_score.format(a=teamA, a_score=scores[teamA], b=teamB, b_score=scores[teamB]))
+        await self.channel.send(final_score.format(a=self.teamA, a_score=scores[self.teamA], b=self.teamB, b_score=scores[self.teamB]))
         gameStarted = False
-        await clean_up()
+        await self.clean_up()
