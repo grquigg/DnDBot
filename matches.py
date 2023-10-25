@@ -8,8 +8,8 @@ class Match():
         self.teamB = teamB
         self.channel = channel
         self.gen = flavorText
-        self.teamData = teamData
-        self.team_rosters = team_rosters
+        self.teamData = teamData #the full list of all players in the data and their stats
+        self.team_rosters = team_rosters #the current rosters for each team
         self.gen = FlavorTextGenerator(self.gen)
         self.headless = headless
         self.paused = False
@@ -177,29 +177,105 @@ class Match():
         else:
             await channel.send("No more rerolls left")
 
-    async def start_match_headless(self, channel, teamA, teamB):
-        global gameStarted
-        gameStarted = True
-        global num_rounds
-        global teamA_score
-        global teamB_score
-        global scores
-        scores = {}
-        scores[teamA] = 0
-        scores[teamB] = 0
+    async def start_match(self):
+        print("Start match")
         A = random.randint(1, 20)
         B = random.randint(1, 20)
-        num_rounds = 1
+        num_rounds = random.randint(1, 12)
+        scores = {}
+        scores[self.teamA] = 0
+        scores[self.teamB] = 0
         first_team = ""
+        second_team = ""
+        #flip a "coin" to determine which team goes first
+        coin = random.randint(0, 1)
+        if(coin == 0):
+            await self.channel.send(self.teamA + " will be on the offensive first")
+            first_team = self.teamA
+            second_team = self.teamB
+        else:
+            await self.channel.send(self.teamB + " will be on the offensive first")
+            first_team = self.teamB
+            second_team = self.teamA
+
+        await self.run_round(first_team, second_team, init=True)
+        await self.channel.send("Type 'continue' to continue")
+        while(self.paused):
+            await asyncio.sleep(1)
+        await self.channel.send("Possession has turned over to " + str(second_team))
+        await self.run_round(second_team, first_team)
+        await self.channel.send("Type 'continue' to continue")
+        while(self.paused):
+            await asyncio.sleep(1)
+        for i in range(1, 1):
+            await self.channel.send("The {house} team now has control of the Quaffle".format(house=first_team))
+            await self.run_round(first_team, second_team)
+            await self.channel.send("Possession has turned over to {house}".format(house=second_team))
+            await self.channel.send("Type 'continue' to continue")
+            while(self.paused):
+                await asyncio.sleep(1)
+            await self.run_round(second_team, first_team)
+        #rolls for determining who catches the snitch at the end of a match
+        teamA_rolls = 0
+        teamB_rolls = 0 
+        for j in range(3):
+            teamA_rolls += random.randint(1, 6)
+            teamB_rolls += random.randint(1, 6)
+        teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
+        teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
+        while (teamA_rolls == teamB_rolls):
+            for j in range(3):
+                teamA_rolls += random.randint(1, 6)
+                teamB_rolls += random.randint(1, 6)
+            teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
+            teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
+        
+        if(self.teamData[self.team_rosters[first_team]["Seeker"]]["injured"]):
+            teamA_rolls -= 1
+        if(self.teamData[self.team_rosters[second_team]["Seeker"]]["injured"]):
+            teamB_rolls -= 1
+
+        self.teamData[self.team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
+        self.teamData[self.team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
+        if(teamA_rolls > teamB_rolls):
+            scores[self.teamA] += 150
+            seeker = self.teamData[self.team_rosters[self.teamA]["Seeker"]]
+        else:
+            scores[self.teamB] += 150
+            seeker = self.teamData[self.team_rosters[self.teamB]["Seeker"]]
+
+        seeker["xp"] += 150
+        await self.channel.send("{sk} has caught the Snitch! Ending the game after {r} rounds!".format(sk=seeker["name"], r=num_rounds))
+        await check_for_level_up(self.teamData[self.team_rosters[first_team]["Seeker"]], self.channel)
+        await check_for_level_up(self.teamData[self.team_rosters[second_team]["Seeker"]], self.channel)
+        final_score = "The match has officially ended. {a} has scored {a_score} points. {b} has scored {b_score} points. "
+        if(scores[self.teamA] > scores[self.teamB]):
+            final_score += "{a} wins the match!"
+        elif(scores[self.teamB] > scores[self.teamA]):
+            final_score += "{b} wins the match!"
+        else:
+            await self.channel.send("The score is a tie, so " + second_team + " wins!")
+        #need to verify that this actually prints out what it's supposed to
+        await self.channel.send(final_score.format(a=self.teamA, a_score=scores[self.teamA], b=self.teamB, b_score=scores[self.teamB]))
+        gameStarted = False
+        await self.clean_up()
+
+    async def start_match_headless(self):
+        A = random.randint(1, 20)
+        B = random.randint(1, 20)
+        num_rounds = random.randint(1, 12)
+        scores = {}
+        scores[self.teamA] = 0
+        scores[self.teamB] = 0
         first_team = ""
         second_team = ""
         coin = random.randint(0, 1)
         if(coin == 0):
-            first_team = teamA
-            second_team = teamB
+            first_team = self.teamA
+            second_team = self.teamB
         else:
-            first_team = teamB
-            second_team = teamA
+            first_team = self.teamB
+            second_team = self.teamA
         for i in range(num_rounds):
             await self.run_round_headless(first_team, second_team)
             await self.run_round_headless(second_team, first_team)
@@ -211,31 +287,31 @@ class Match():
         teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
         teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
 
-        if(teamData[team_rosters[first_team]["Seeker"]]["injured"]):
+        if(self.teamData[self.team_rosters[first_team]["Seeker"]]["injured"]):
             teamA_rolls -= 1
-        if(teamData[team_rosters[second_team]["Seeker"]]["injured"]):
+        if(self.teamData[self.team_rosters[second_team]["Seeker"]]["injured"]):
             teamB_rolls -= 1
 
-        teamData[team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
-        teamData[team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
+        self.teamData[self.team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
+        self.teamData[self.team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
         
         if(teamA_rolls > teamB_rolls):
-            scores[teamA] += 150
-            seeker = teamData[team_rosters[first_team]["Seeker"]]["name"]
-            teamData[team_rosters[first_team]["Seeker"]]["xp"] += 150
+            scores[self.teamA] += 150
+            seeker = self.teamData[self.team_rosters[first_team]["Seeker"]]["name"]
+            self.teamData[self.team_rosters[first_team]["Seeker"]]["xp"] += 150
         elif (teamB_rolls > teamA_rolls):
-            scores[teamB] += 150
-            seeker = teamData[team_rosters[second_team]["Seeker"]]["name"]
-            teamData[team_rosters[second_team]["Seeker"]]["xp"] += 150
-        if(scores[teamA] > scores[teamB]):
-            await channel.send(first_team + " wins!")
-        elif(scores[teamB] > scores[teamA]):
-            await channel.send(second_team + " wins!")
+            scores[self.teamB] += 150
+            seeker = self.teamData[self.team_rosters[second_team]["Seeker"]]["name"]
+            self.teamData[self.team_rosters[second_team]["Seeker"]]["xp"] += 150
+        if(scores[self.teamA] > scores[self.teamB]):
+            await self.channel.send(first_team + " wins!")
+        elif(scores[self.teamB] > scores[self.teamA]):
+            await self.channel.send(second_team + " wins!")
         else:
-            await channel.send("The score is a tie, so " + second_team + " wins!")
-        await channel.send("Score is " + str(first_team) + ": " + str(scores[teamA]) + ", " + str(second_team) + ": " + str(scores[teamB]))
+            await self.channel.send("The score is a tie, so " + second_team + " wins!")
+        await self.channel.send("Score is " + str(first_team) + ": " + str(scores[self.teamA]) + ", " + str(second_team) + ": " + str(scores[self.teamB]))
         gameStarted = False
-        await clean_up()
+        await self.clean_up()
 
     async def run_round_headless(self, teamA, teamB, team_rosters, teamData):
         global team_A_rolls
@@ -431,84 +507,3 @@ class Match():
         await self.channel.send(string.format(keeper = self.teamData[self.team_rosters[b]["Keeper"]]["name"], quaffle = self.teamData[quaffle_possession]["name"], final=finalMove, off=a, f=flavor))
         score = "{teamA} scores {success} goals and {teamB} blocks {miss} goals. The total score thus far is {teamA}: {scoreA}, {teamB}: {scoreB}"
         await self.channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = self.scores[team_a], scoreB = self.scores[team_b]))
-
-    async def start_match(self):
-        print("Start match")
-        A = random.randint(1, 20)
-        B = random.randint(1, 20)
-        num_rounds = random.randint(1, 12)
-        scores = {}
-        scores[self.teamA] = 0
-        scores[self.teamB] = 0
-        first_team = ""
-        second_team = ""
-        coin = random.randint(0, 1)
-        if(coin == 0):
-            await self.channel.send(self.teamA + " will be on the offensive first")
-            first_team = self.teamA
-            second_team = self.teamB
-        else:
-            await self.channel.send(self.teamB + " will be on the offensive first")
-            first_team = self.teamB
-            second_team = self.teamA
-        await self.run_round(first_team, second_team, init=True)
-        await self.channel.send("Type 'continue' to continue")
-        while(self.paused):
-            await asyncio.sleep(1)
-        await self.channel.send("Possession has turned over to " + str(second_team))
-        await self.run_round(second_team, first_team)
-        await self.channel.send("Type 'continue' to continue")
-        while(self.paused):
-            await asyncio.sleep(1)
-        for i in range(1, 1):
-            await self.channel.send("The {house} team now has control of the Quaffle".format(house=first_team))
-            await self.run_round(first_team, second_team)
-            await self.channel.send("Possession has turned over to {house}".format(house=second_team))
-            await self.channel.send("Type 'continue' to continue")
-            while(self.paused):
-                await asyncio.sleep(1)
-            await self.run_round(second_team, first_team)
-        teamA_rolls = 0
-        teamB_rolls = 0 
-        for j in range(3):
-            teamA_rolls += random.randint(1, 6)
-            teamB_rolls += random.randint(1, 6)
-        teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
-        teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
-        while (teamA_rolls == teamB_rolls):
-            for j in range(3):
-                teamA_rolls += random.randint(1, 6)
-                teamB_rolls += random.randint(1, 6)
-            teamA_rolls += self.teamData[self.team_rosters[first_team]["Seeker"]]["rank"]
-            teamB_rolls += self.teamData[self.team_rosters[second_team]["Seeker"]]["rank"]
-        
-        if(self.teamData[self.team_rosters[first_team]["Seeker"]]["injured"]):
-            teamA_rolls -= 1
-        if(self.teamData[self.team_rosters[second_team]["Seeker"]]["injured"]):
-            teamB_rolls -= 1
-
-        self.teamData[self.team_rosters[first_team]["Seeker"]]["xp"] += (teamA_rolls * 10)
-        self.teamData[self.team_rosters[second_team]["Seeker"]]["xp"] += (teamB_rolls * 10)
-        if(teamA_rolls > teamB_rolls):
-            scores[self.teamA] += 150
-            seeker = self.teamData[self.team_rosters[self.teamA]["Seeker"]]
-        else:
-            scores[self.teamB] += 150
-            seeker = self.teamData[self.team_rosters[self.teamB]["Seeker"]]
-
-        print(seeker)
-        seeker["xp"] += 150
-        await self.channel.send("{sk} has caught the Snitch! Ending the game after {r} rounds!".format(sk=seeker["name"], r=num_rounds))
-        await check_for_level_up(self.teamData[self.team_rosters[first_team]["Seeker"]], self.channel)
-        await check_for_level_up(self.teamData[self.team_rosters[second_team]["Seeker"]], self.channel)
-        final_score = "The match has officially ended. {a} has scored {a_score} points. {b} has scored {b_score} points. "
-        if(scores[self.teamA] > scores[self.teamB]):
-            final_score += "{a} wins the match!"
-        elif(scores[self.teamB] > scores[self.teamA]):
-            final_score += "{b} wins the match!"
-        else:
-            await self.channel.send("The score is a tie, so " + second_team + " wins!")
-        #need to verify that this actually prints out what it's supposed to
-        await self.channel.send(final_score.format(a=self.teamA, a_score=scores[self.teamA], b=self.teamB, b_score=scores[self.teamB]))
-        gameStarted = False
-        await self.clean_up()
