@@ -507,3 +507,11 @@ class Match():
         await self.channel.send(string.format(keeper = self.teamData[self.team_rosters[b]["Keeper"]]["name"], quaffle = self.teamData[quaffle_possession]["name"], final=finalMove, off=a, f=flavor))
         score = "{teamA} scores {success} goals and {teamB} blocks {miss} goals. The total score thus far is {teamA}: {scoreA}, {teamB}: {scoreB}"
         await self.channel.send(score.format(teamA=a, success=successes, teamB = b, miss = misses, scoreA = self.scores[team_a], scoreB = self.scores[team_b]))
+
+    async def clean_up(self):
+        for key, value in self.teamData.items():
+            if(self.teamData[key]["injured"]):
+                self.teamData[key]["injured"] = False
+            if(self.teamData[key]["critically_injured"]):
+                self.teamData[key]["critically_injured"] = False
+                self.teamData[key]["injured"] = True
