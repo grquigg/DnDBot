@@ -528,11 +528,11 @@ async def on_message(message):
                     return
             await message.channel.send("Match is ready to start!")
             gameStarted = True
+            currentMatch = Match(teamA, teamB, team_rosters, message.channel, flavorText, teamData)
             if teamA == "Gryffindor" or teamB == "Gryffindor":
-                currentMatch = Match(teamA, teamB, team_rosters, message.channel, flavorText, teamData)
                 await currentMatch.start_match()
             else:
-                await start_match_headless(message.channel, teamA, teamB)
+                await currentMatch.start_match_headless()
     elif message.content.find("-start_practice ") != -1:
         print("Start practice")
         await start_practice()

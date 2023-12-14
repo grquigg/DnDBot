@@ -1,6 +1,6 @@
 import random
 import asyncio
-from utils import check_for_level_up, FlavorTextGenerator
+from utils import check_for_level_up, FlavorTextGenerator, search_for_sub
 
 class Match():
     def __init__(self, teamA, teamB, team_rosters, channel, flavorText, teamData, headless=False):
@@ -112,7 +112,7 @@ class Match():
                 while(self.team_rosters[b][hit[0]] == None):
                     if(channel == None or b != "Gryffindor"):
                         print("Call search for sub")
-                        await search_for_sub(b, hit)
+                        await search_for_sub(b, hit, self.team_rosters, self.teamData, self.teams)
                     await asyncio.sleep(1)
             else:
                 self.teamData[hit[1]]["injured"] = True
@@ -160,12 +160,14 @@ class Match():
                 self.teamData[team_A_rolls[index_i][0]]["xp"] += 25
                 await channel.send(self.teamData[team_A_rolls[index_i][0]]["name"] + " has scored a goal")
                 await check_for_level_up(self.teamData[team_A_rolls[index_i][0]], channel)
-                scores[team_a] += 30
+                scores[self.team_a] += 30
             elif(team_A_rolls[index_i][1] < team_B_rolls[index_i]):
                 if(team_B_rolls[index_i] - team_A_rolls[index_i][1] <= 2):
-                    await channel.send(self.teamData[team_A_rolls[index_i][0]]["name"] + " almost managed to score a goal but " + teamData[team_rosters[team_b]["Keeper"]]["name"] + " blocked it at the last second!")
+                    await channel.send(self.teamData[team_A_rolls[index_i][0]]["name"] + " almost managed to score a goal but " +\
+                                        self.teamData[self.team_rosters[self.team_b]["Keeper"]]["name"] + " blocked it at the last second!")
                 else:
-                    await channel.send(self.teamData[self.team_rosters[team_b]["Keeper"]]["name"] + " has blocked " + teamData[team_A_rolls[index_i][0]]["name"] + " from scoring")
+                    await channel.send(self.teamData[self.team_rosters[self.team_b]["Keeper"]]["name"] + " has blocked " + \
+                                       self.teamData[team_A_rolls[index_i][0]]["name"] + " from scoring")
                 self.teamData[team_A_rolls[index_i][0]]["xp"] += 5
                 keeper = self.team_rosters[self.team_b]["Keeper"]
                 self.teamData[keeper]["xp"] += 10
@@ -313,7 +315,7 @@ class Match():
         gameStarted = False
         await self.clean_up()
 
-    async def run_round_headless(self, teamA, teamB, team_rosters, teamData):
+    async def run_round_headless(self, teamA, teamB):
         global team_A_rolls
         global team_B_rolls
         team_a = teamA
@@ -333,21 +335,21 @@ class Match():
             beater_rolls.append(random.randint(0, maxRoll))
         for k in range(maxRoll):
             if(k % 3 == 0):
-                chaser = team_rosters[team_a]["Chaser1"]
+                chaser = self.team_rosters[team_a]["Chaser1"]
             elif(k % 3 == 1):
-                chaser = team_rosters[team_a]["Chaser2"]
+                chaser = self.team_rosters[team_a]["Chaser2"]
             else:
-                chaser = team_rosters[team_a]["Chaser3"]
+                chaser = self.team_rosters[team_a]["Chaser3"]
 
-            r = (chaser, (random.randint(1, 12) + teamData[chaser]["rank"]))
-            if(teamData[chaser]["injured"]):
+            r = (chaser, (random.randint(1, 12) + self.teamData[chaser]["rank"]))
+            if(self.teamData[chaser]["injured"]):
                 roll = r[1]
                 r = (chaser, roll - 1)
             team_A_rolls.append(r)
-            keeper = team_rosters[team_b]["Keeper"]
+            keeper = self.team_rosters[team_b]["Keeper"]
             team_B_rolls.append(random.randint(1, 12) + teamData[keeper]["rank"])
 
-            if(teamData[keeper]["injured"]):
+            if(self.teamData[keeper]["injured"]):
                 print("keeper is injured")
                 team_B_rolls[k] -= 1
                 
@@ -359,24 +361,24 @@ class Match():
             index_i = x
             if(beater_rolls[0] == x):
                 print("beater turn")
-                beater = teamData[team_rosters[team_a]["Beater1"]]
-                await beater_turn(beater, None, team_a, team_b)
+                beater = self.teamData[self.team_rosters[team_a]["Beater1"]]
+                await self.beater_turn(beater, None, team_a, team_b)
 
             if(beater_rolls[1] == x):
-                beater = teamData[team_rosters[team_a]["Beater2"]]
+                beater = self.teamData[self.team_rosters[team_a]["Beater2"]]
                 await self.beater_turn(beater, None, team_a, team_b)
 
             if (team_A_rolls[x][1] > team_B_rolls[x]):
 
-                teamData[team_A_rolls[x][0]]["xp"] += 25
-                await check_for_level_up(teamData[team_A_rolls[x][0]], None)
+                self.teamData[team_A_rolls[x][0]]["xp"] += 25
+                await check_for_level_up(self.teamData[team_A_rolls[x][0]], None)
                 scores[team_a] += 30
             elif(team_A_rolls[x][1] < team_B_rolls[x]):
-                teamData[team_A_rolls[x][0]]["xp"] += 5
-                keeper = team_rosters[team_b]["Keeper"]
-                teamData[keeper]["xp"] += 10
-                await check_for_level_up(teamData[team_A_rolls[x][0]], None)
-                await check_for_level_up(teamData[keeper], None)
+                self.teamData[team_A_rolls[x][0]]["xp"] += 5
+                keeper = self.team_rosters[team_b]["Keeper"]
+                self.teamData[keeper]["xp"] += 10
+                await check_for_level_up(self.teamData[team_A_rolls[x][0]], None)
+                await check_for_level_up(self.teamData[keeper], None)
             else:
                 continue
 

@@ -1,6 +1,6 @@
 import random
 
-async def search_for_sub(team, position):
+async def search_for_sub(team, position, team_rosters, teamData, teams, add_player):
     new_player = False
     if("Chaser" in position[0]):
         chaser_list = [] #players that are already in the current match
